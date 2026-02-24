@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+/public/uploads
+/.tmp-visual
+/.tmp-batch-visual
+/.tmp-ui-shots

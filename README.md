@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Open iOS Doodler
 
-## Getting Started
+Open iOS Doodler helps you make App Store screenshots in many languages.
 
-First, run the development server:
+You upload screenshot templates, place text labels once, and then generate final images for iPhone/iPad sizes.
+
+## Who this is for
+
+- App teams that need App Store screenshots in many languages.
+- Designers/marketers who want one repeatable workflow.
+
+## What you can do
+
+- Upload 1 or many template images.
+- Add text labels and drag them where you want.
+- Import translations from JSON.
+- Preview any language.
+- Generate images for selected iOS sizes.
+- Generate for one language or all languages.
+- Save output to a folder grouped by language.
+
+## Example output folder
+
+```text
+my-output/
+  en/
+    feature-one/
+      feature-one_iphone-6-7_en.png
+  de/
+    feature-one/
+      feature-one_iphone-6-7_de.png
+```
+
+## Quick start
+
+1. Install packages:
+
+```bash
+npm install
+```
+
+2. Prepare database:
+
+```bash
+npm run prisma:generate
+npm run prisma:push
+```
+
+3. Start app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open in browser:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Note: If port 3000 is busy, Next.js will use another port (for example 3001).
 
-## Learn More
+## How to use
 
-To learn more about Next.js, take a look at the following resources:
+1. Upload a template image.
+2. Add labels and move them to the right positions.
+3. Import translations JSON.
+4. Select templates, languages, iOS sizes.
+5. Set output directory.
+6. Run generation.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Translation JSON format
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```json
+{
+  "en": {
+    "title": "Plan your day in seconds",
+    "subtitle": "Smart reminders and calm focus mode"
+  },
+  "es": {
+    "title": "Planifica tu dia en segundos",
+    "subtitle": "Recordatorios inteligentes y modo enfoque"
+  }
+}
+```
 
-## Deploy on Vercel
+Rules:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Top-level keys = language codes (`en`, `es`, `de`, etc).
+- Inside each language, key names must match your label keys.
+- All values must be strings.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Screen size support
+
+- Full editor is for desktop and iPad.
+- On small phone screens, the app shows a warning card.
+
+## Helpful commands
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+## Tech stack
+
+- Next.js + TypeScript
+- shadcn/ui
+- Prisma + SQLite
+- Sharp (image generation)

@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Template {
+  id              String              @id @default(cuid())
+  name            String
+  description     String?
+  sourceImagePath String
+  sourceWidth     Int
+  sourceHeight    Int
+  labels          TemplateLabel[]
+  translations    TranslationLocale[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model TemplateLabel {
+  id         String    @id @default(cuid())
+  templateId String
+  template   Template  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  key        String
+  x          Float
+  y          Float
+  width      Float
+  fontSize   Float
+  fontWeight Int       @default(700)
+  color      String    @default("#ffffff")
+  align      TextAlign @default(CENTER)
+  maxLines   Int       @default(2)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([templateId, key])
+  @@index([templateId])
+}
+
+model TranslationLocale {
+  id           String   @id @default(cuid())
+  templateId   String
+  template     Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  languageCode String
+  entriesJson  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([templateId, languageCode])
+  @@index([templateId])
+}
+
+enum TextAlign {
+  LEFT
+  CENTER
+  RIGHT
+}
