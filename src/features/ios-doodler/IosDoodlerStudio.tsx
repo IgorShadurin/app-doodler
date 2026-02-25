@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import {
   addLabelFromKey,
+  applyLabelTextCase,
   applyUploadedAsset,
   createEmptySlot,
   createDummyTemplateAsset,
@@ -46,6 +47,7 @@ import {
   updateLabel,
   updateLabelText,
   type LabelAlign,
+  type LabelTextCase,
   type LabelVerticalAlign,
   type TemplateAsset,
   type TemplateSlot,
@@ -66,6 +68,9 @@ import {
   DEFAULT_SCREENSHOT_WIDTH,
   DUMMY_TEMPLATE_ASSET_FILENAME,
   DUMMY_TEMPLATE_ASSET_ID,
+  IOS_SCREENSHOT_CORNER_RADIUS_MAX_PX,
+  IOS_SCREENSHOT_CORNER_RADIUS_MIN_PX,
+  IOS_SCREENSHOT_CORNER_RADIUS_RATIO,
   LEGACY_DEFAULT_SCREENSHOT_HEIGHT,
   LEGACY_DEFAULT_SCREENSHOT_WIDTH,
   SCREENSHOT_OPAQUE_BACKGROUND_HEX,
@@ -247,6 +252,7 @@ const SELECTION_FRAME_CLASS = 'cursor-move border-solid bg-sky-500/15 shadow-sm'
 const SELECTION_BADGE_CLASS = 'pointer-events-none absolute left-1 top-1 rounded-sm bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-sky-800';
 const SELECTION_HANDLE_BASE_CLASS = 'h-4 w-4 rounded-full border border-sky-700 bg-white';
 const DEFAULT_FONT_FAMILIES = [
+  'League Spartan',
   'Arial',
   'Helvetica',
   'Helvetica Neue',
@@ -274,6 +280,29 @@ const DEFAULT_FONT_FAMILIES = [
   'monospace',
 ];
 
+const FONT_FAMILY_ALIAS_MAP: Record<string, string> = {
+  'League Spartan': 'var(--font-league-spartan), sans-serif',
+};
+
+function resolveRuntimeFontFamily(fontFamily: string): string {
+  const normalized = fontFamily.trim();
+  if (!normalized) return 'Arial, sans-serif';
+  return FONT_FAMILY_ALIAS_MAP[normalized] ?? normalized;
+}
+
+function resolveFontCssVariables(fontFamily: string): string {
+  if (typeof document === 'undefined') return fontFamily;
+
+  return fontFamily.replaceAll(/var\((--[^)]+)\)/g, (_, variableName: string) => {
+    const bodyValue = document.body
+      ? getComputedStyle(document.body).getPropertyValue(variableName).trim()
+      : '';
+    const rootValue = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+    const resolved = bodyValue || rootValue;
+    return resolved || `var(${variableName})`;
+  });
+}
+
 function toPngFileName(fileName: string): string {
   const dotIndex = fileName.lastIndexOf('.');
   if (dotIndex <= 0) {
@@ -284,6 +313,18 @@ function toPngFileName(fileName: string): string {
 
 function toFastlaneShotFileName(order: number): string {
   return `${String(order).padStart(2, '0')}-shot.png`;
+}
+
+function computeScreenshotCornerRadius(displayWidth: number): number {
+  if (!Number.isFinite(displayWidth) || displayWidth <= 0) {
+    return IOS_SCREENSHOT_CORNER_RADIUS_MIN_PX;
+  }
+
+  const scaled = displayWidth * IOS_SCREENSHOT_CORNER_RADIUS_RATIO;
+  return Math.max(
+    IOS_SCREENSHOT_CORNER_RADIUS_MIN_PX,
+    Math.min(IOS_SCREENSHOT_CORNER_RADIUS_MAX_PX, scaled),
+  );
 }
 
 function cropRectPxToPreview(rect: CropRectPx, sourceWidth: number, sourceHeight: number) {
@@ -429,7 +470,7 @@ function clamp01(value: number): number {
 }
 
 function toCanvasFontFamily(fontFamily: string): string {
-  const normalized = fontFamily.trim();
+  const normalized = resolveFontCssVariables(resolveRuntimeFontFamily(fontFamily)).trim();
   if (!normalized) return 'Arial, sans-serif';
   if (normalized.includes(',') || normalized.includes('"') || normalized.includes("'")) {
     return normalized;
@@ -651,7 +692,10 @@ async function renderSlotBlob(slot: TemplateSlot, languageCode: string): Promise
 
   for (const label of slot.labels) {
     const box = toAbsoluteLabelBox(label, asset);
-    const text = resolveLabelText(slot, languageCode, label.key);
+    const text = applyLabelTextCase(
+      resolveLabelText(slot, languageCode, label.key),
+      label.textCase ?? 'default',
+    );
     context.fillStyle = label.color;
     context.font = `${label.fontWeight} ${box.fontSize}px ${toCanvasFontFamily(label.fontFamily)}`;
     context.textAlign = label.align;
@@ -772,6 +816,20 @@ function LabelOverlay({
   const scale = fitMode === 'contain'
     ? (containFrameWidth ? containFrameWidth / asset.width : 1)
     : (viewportSize.width > 0 ? viewportSize.width / asset.width : 1);
+  const displayFrameWidth = fitMode === 'contain'
+    ? (containFrameWidth ?? 0)
+    : viewportSize.width;
+  const frameCornerRadiusPx = computeScreenshotCornerRadius(displayFrameWidth);
+  const frameStyle = fitMode === 'contain'
+    ? {
+      width: containFrameWidth ?? undefined,
+      height: containFrameHeight ?? undefined,
+      aspectRatio: `${asset.width} / ${asset.height}`,
+      borderRadius: `${frameCornerRadiusPx}px`,
+    }
+    : {
+      borderRadius: `${frameCornerRadiusPx}px`,
+    };
 
   return (
     <div
@@ -789,13 +847,7 @@ function LabelOverlay({
           fitMode === 'contain' ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2' : 'h-full w-full',
           canDropLabelKeys && isKeyDragOver && 'ring-2 ring-sky-300',
         )}
-        style={fitMode === 'contain'
-          ? {
-            width: containFrameWidth ?? undefined,
-            height: containFrameHeight ?? undefined,
-            aspectRatio: `${asset.width} / ${asset.height}`,
-          }
-          : undefined}
+        style={frameStyle}
         onDragOver={(event) => {
           if (!canDropLabelKeys) return;
           event.preventDefault();
@@ -841,7 +893,10 @@ function LabelOverlay({
             >
                 {slot.labels.map((label) => {
                 const box = toAbsoluteLabelBox(label, asset);
-                const text = resolveLabelText(slot, languageCode, label.key);
+                const text = applyLabelTextCase(
+                  resolveLabelText(slot, languageCode, label.key),
+                  label.textCase ?? 'default',
+                );
                 const isSelected = selectedLabelId === label.id;
                 const verticalAlign = label.verticalAlign ?? 'center';
                 const horizontalAlignValue = label.align ?? 'center';
@@ -893,7 +948,7 @@ function LabelOverlay({
                   width: box.width,
                   height: box.height,
                   fontSize: box.fontSize,
-                  fontFamily: label.fontFamily,
+                  fontFamily: resolveRuntimeFontFamily(label.fontFamily),
                   fontWeight: label.fontWeight,
                   color: label.color,
                       textAlign: horizontalAlignValue,
@@ -1034,6 +1089,12 @@ function normalizeLoadedSlots(value: unknown): TemplateSlot[] | null {
           rotation: typeof (label as { rotation?: unknown }).rotation === 'number'
             ? (label as { rotation: number }).rotation
             : 0,
+          textCase: (() => {
+            const raw = (label as { textCase?: unknown }).textCase;
+            return raw === 'uppercase' || raw === 'lowercase' || raw === 'default'
+              ? raw
+              : 'default';
+          })(),
         }))
         : [];
       const isLegacyDefaultLabelSet =
@@ -2187,6 +2248,11 @@ export function IosDoodlerStudio() {
     mutateSlot(editingSlot.id, (slot) => updateLabel(slot, selectedLabel.id, { verticalAlign: value }));
   }, [editingSlot, mutateSlot, selectedLabel]);
 
+  const handleEditorTextCaseChange = useCallback((value: LabelTextCase) => {
+    if (!editingSlot || !selectedLabel) return;
+    mutateSlot(editingSlot.id, (slot) => updateLabel(slot, selectedLabel.id, { textCase: value }));
+  }, [editingSlot, mutateSlot, selectedLabel]);
+
   const handleEditorFontFamilyChange = useCallback((value: string) => {
     if (!editingSlot || !selectedLabel) return;
     const fontFamily = value.trim();
@@ -3165,7 +3231,7 @@ export function IosDoodlerStudio() {
                             className="w-full justify-between font-normal"
                           >
                             <span className="flex min-w-0 items-center gap-2 text-sm">
-                              <span style={{ fontFamily: selectedLabel.fontFamily }} className="truncate">
+                              <span style={{ fontFamily: resolveRuntimeFontFamily(selectedLabel.fontFamily) }} className="truncate">
                                 {selectedLabel.fontFamily}
                               </span>
                               <span className="text-xs text-slate-500">Aa</span>
@@ -3198,7 +3264,7 @@ export function IosDoodlerStudio() {
                                       variant={isSelectedFont ? 'default' : 'outline'}
                                       className="min-w-0 flex-1 justify-between h-9 px-2 text-left text-xs"
                                       onClick={() => handleEditorFontFamilyChange(fontFamily)}
-                                      style={{ fontFamily }}
+                                      style={{ fontFamily: resolveRuntimeFontFamily(fontFamily) }}
                                     >
                                       <span className="truncate">{fontFamily}</span>
                                       <span className="ml-2 shrink-0 text-xs opacity-70">Aa</span>
@@ -3239,6 +3305,39 @@ export function IosDoodlerStudio() {
                           onFocus={(event) => event.currentTarget.blur()}
                           aria-readonly="true"
                         />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label>Letter Case</Label>
+                      <div className="grid grid-cols-3 gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={(selectedLabel.textCase ?? 'default') === 'default' ? 'default' : 'outline'}
+                          className="text-xs"
+                          onClick={() => handleEditorTextCaseChange('default')}
+                        >
+                          Default
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={(selectedLabel.textCase ?? 'default') === 'uppercase' ? 'default' : 'outline'}
+                          className="text-xs"
+                          onClick={() => handleEditorTextCaseChange('uppercase')}
+                        >
+                          UPPER
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={(selectedLabel.textCase ?? 'default') === 'lowercase' ? 'default' : 'outline'}
+                          className="text-xs"
+                          onClick={() => handleEditorTextCaseChange('lowercase')}
+                        >
+                          lower
+                        </Button>
                       </div>
                     </div>
 

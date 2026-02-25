@@ -8,6 +8,7 @@ import {
 
 export type LabelAlign = 'left' | 'center' | 'right';
 export type LabelVerticalAlign = 'top' | 'center' | 'bottom';
+export type LabelTextCase = 'default' | 'uppercase' | 'lowercase';
 
 export type TemplateAsset = {
   id: string;
@@ -33,6 +34,7 @@ export type TemplateLabel = {
   maxLines: number;
   align: LabelAlign;
   verticalAlign: LabelVerticalAlign;
+  textCase: LabelTextCase;
 };
 
 export type TemplateSlot = {
@@ -96,6 +98,7 @@ function getInitialLabelStyle(labelKey: string): Pick<
   | 'maxLines'
   | 'align'
   | 'verticalAlign'
+  | 'textCase'
 > {
   if (labelKey === 'subtitle') {
     return {
@@ -109,6 +112,7 @@ function getInitialLabelStyle(labelKey: string): Pick<
       maxLines: 3,
       align: 'center',
       verticalAlign: 'center',
+      textCase: 'default',
     };
   }
 
@@ -124,6 +128,7 @@ function getInitialLabelStyle(labelKey: string): Pick<
       maxLines: 2,
       align: 'center',
       verticalAlign: 'center',
+      textCase: 'default',
     };
   }
 
@@ -136,8 +141,9 @@ function getInitialLabelStyle(labelKey: string): Pick<
     rotation: 0,
     color: '#233045',
     maxLines: 2,
-      align: 'center',
-      verticalAlign: 'center',
+    align: 'center',
+    verticalAlign: 'center',
+    textCase: 'default',
   };
 }
 
@@ -235,6 +241,12 @@ export function resolveLabelText(slot: TemplateSlot, languageCode: string, label
   return `${labelKey} (${languageCode})`;
 }
 
+export function applyLabelTextCase(text: string, textCase: LabelTextCase): string {
+  if (textCase === 'uppercase') return text.toUpperCase();
+  if (textCase === 'lowercase') return text.toLowerCase();
+  return text;
+}
+
 export function updateLabelText(
   slot: TemplateSlot,
   languageCode: string,
@@ -308,6 +320,11 @@ export function updateLabel(
     merged.maxLines = Math.round(clamp(merged.maxLines, 1, 8));
     merged.fontWeight = Math.round(clamp(merged.fontWeight, 100, 900));
     merged.rotation = clamp(merged.rotation, -180, 180);
+    merged.textCase = (
+      merged.textCase === 'uppercase'
+      || merged.textCase === 'lowercase'
+      || merged.textCase === 'default'
+    ) ? merged.textCase : 'default';
     merged.x = clampLabelX(merged.x, merged.width);
     merged.y = clampLabelY(merged.y, merged.height);
 
@@ -324,6 +341,7 @@ export function updateLabel(
       || merged.maxLines !== label.maxLines
       || merged.align !== label.align
       || merged.verticalAlign !== label.verticalAlign
+      || merged.textCase !== label.textCase
     );
 
     if (!didChange) {
@@ -358,6 +376,7 @@ export function addLabel(slot: TemplateSlot, languages: StudioLanguage[]): Templ
     maxLines: 2,
     align: 'center',
     verticalAlign: 'center',
+    textCase: 'default',
   };
 
   const nextText = { ...slot.textByLanguage };

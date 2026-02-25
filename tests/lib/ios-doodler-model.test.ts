@@ -8,6 +8,7 @@ import test from "node:test";
 import { STUDIO_LANGUAGES } from "@/features/ios-doodler/languages";
 import {
   addLabelFromKey,
+  applyLabelTextCase,
   createInitialSlots,
   listSlotLabelKeys,
   removeLabel,
@@ -201,4 +202,24 @@ test("updateLabel returns the same slot when no effective style change is applie
 
   const same = updateLabel(withLabel, label.id, { color: label.color });
   assert.equal(same, withLabel);
+});
+
+test("labels default to textCase=default and can switch text case mode", () => {
+  const [slot] = createInitialSlots(STUDIO_LANGUAGES);
+  assert.ok(slot);
+  slot.textByLanguage = { "en-US": { headline: "Feature One" } };
+
+  const withLabel = addLabelFromKey(slot, "headline");
+  const label = withLabel.labels[0];
+  assert.ok(label);
+  assert.equal(label?.textCase, "default");
+
+  const upper = updateLabel(withLabel, label.id, { textCase: "uppercase" });
+  assert.equal(upper.labels[0]?.textCase, "uppercase");
+});
+
+test("applyLabelTextCase transforms text by selected mode", () => {
+  assert.equal(applyLabelTextCase("AbC", "default"), "AbC");
+  assert.equal(applyLabelTextCase("AbC", "uppercase"), "ABC");
+  assert.equal(applyLabelTextCase("AbC", "lowercase"), "abc");
 });

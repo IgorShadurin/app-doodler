@@ -11,3 +11,7 @@ export const DUMMY_TEMPLATE_ASSET_ID = "dummy-template";
 export const DUMMY_TEMPLATE_ASSET_FILENAME = "dummy-template.svg";
 
 export const SCREENSHOT_OPAQUE_BACKGROUND_HEX = "#FFFFFF";
+
+export const IOS_SCREENSHOT_CORNER_RADIUS_RATIO = 0.06;
+export const IOS_SCREENSHOT_CORNER_RADIUS_MIN_PX = 12;
+export const IOS_SCREENSHOT_CORNER_RADIUS_MAX_PX = 48;

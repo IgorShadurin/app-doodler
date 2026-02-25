@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { JetBrains_Mono, League_Spartan, Space_Grotesk } from "next/font/google";
 import { Toaster } from "sonner";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +12,11 @@ const spaceGrotesk = Space_Grotesk({
 
 const jetBrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+});
+
+const leagueSpartan = League_Spartan({
+  variable: "--font-league-spartan",
   subsets: ["latin"],
 });
 
@@ -119,7 +124,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} antialiased`}
+        className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} ${leagueSpartan.variable} antialiased`}
       >
         <TooltipProvider>
           {children}
