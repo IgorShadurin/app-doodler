@@ -182,6 +182,7 @@ type CropDragState = {
   sourceHeight: number;
   targetRatio: number;
   startRect: CropRectPx;
+  previewRect: CropRectPx;
   previewWidth: number;
   previewHeight: number;
 };
@@ -227,6 +228,7 @@ const DEFAULT_SLOT_HEIGHT = 2796;
 const LABEL_KEY_DRAG_MIME = 'text/x-ios-doodler-label-key';
 const MIN_FONT_SIZE_PX = 6;
 const PERSISTENCE_DEBOUNCE_MS = 220;
+const COLOR_COMMIT_DEBOUNCE_MS = 120;
 const PERF_DEBUG_WINDOW_FLAG = '__IOS_DOODLER_DEBUG';
 const SELECTION_BORDER_COLOR = 'rgb(2 132 199)';
 const SELECTION_BORDER_WIDTH = 2;
@@ -1065,6 +1067,14 @@ export function IosDoodlerStudio() {
   const pendingDragUpdateRef = useRef<PendingLabelDragUpdate | null>(null);
   const cropDragRef = useRef<CropDragState | null>(null);
   const cropPreviewRef = useRef<HTMLDivElement | null>(null);
+  const cropShadeTopRef = useRef<HTMLDivElement | null>(null);
+  const cropShadeBottomRef = useRef<HTMLDivElement | null>(null);
+  const cropShadeLeftRef = useRef<HTMLDivElement | null>(null);
+  const cropShadeRightRef = useRef<HTMLDivElement | null>(null);
+  const cropSelectionRef = useRef<HTMLDivElement | null>(null);
+  const selectedLabelElementRef = useRef<HTMLElement | null>(null);
+  const pendingColorCommitRef = useRef<{ slotId: string; labelId: string; color: string } | null>(null);
+  const colorCommitTimerRef = useRef<number | null>(null);
   const hasShownPersistenceWarningRef = useRef(false);
   const perfDebugCountersRef = useRef({
     dragMoves: 0,
@@ -1166,6 +1176,7 @@ export function IosDoodlerStudio() {
       };
     });
   }, [selectedLabel, selectedLabelNumericDrafts]);
+
   const orderedFontFamilies = useMemo(() => {
     const favoriteSet = new Set(favoriteFonts);
     const combined = Array.from(
@@ -1318,6 +1329,33 @@ export function IosDoodlerStudio() {
     });
   }, []);
 
+  const flushPendingColorCommit = useCallback(() => {
+    if (colorCommitTimerRef.current !== null) {
+      window.clearTimeout(colorCommitTimerRef.current);
+      colorCommitTimerRef.current = null;
+    }
+    const pending = pendingColorCommitRef.current;
+    pendingColorCommitRef.current = null;
+    if (!pending) return;
+    mutateSlot(pending.slotId, (slot) => updateLabel(slot, pending.labelId, { color: pending.color }));
+  }, [mutateSlot]);
+
+  useEffect(() => {
+    selectedLabelElementRef.current = selectedLabel ? findLabelOverlayElement(selectedLabel.id) : null;
+  }, [selectedLabel]);
+
+  useEffect(() => {
+    return () => {
+      flushPendingColorCommit();
+    };
+  }, [flushPendingColorCommit]);
+
+  useEffect(() => {
+    return () => {
+      flushPendingColorCommit();
+    };
+  }, [editingSlotId, selectedLabelId, flushPendingColorCommit]);
+
   const handleToggleLanguage = useCallback((languageCode: string, checked: boolean) => {
     setEnabledLanguages((previous) => {
       if (checked) {
@@ -1407,6 +1445,58 @@ export function IosDoodlerStudio() {
     }
   }, [activeLanguageCode, mutateSlot, pendingImageUpload]);
 
+  const applyCropPreviewRect = useCallback((rect: CropRectPx, sourceWidth: number, sourceHeight: number) => {
+    const cropPreviewRect = cropRectPxToPreview(rect, sourceWidth, sourceHeight);
+
+    if (cropShadeTopRef.current) {
+      cropShadeTopRef.current.style.height = `${cropPreviewRect.top}%`;
+    }
+    if (cropShadeBottomRef.current) {
+      cropShadeBottomRef.current.style.top = `${cropPreviewRect.top + cropPreviewRect.height}%`;
+    }
+    if (cropShadeLeftRef.current) {
+      cropShadeLeftRef.current.style.top = `${cropPreviewRect.top}%`;
+      cropShadeLeftRef.current.style.width = `${cropPreviewRect.left}%`;
+      cropShadeLeftRef.current.style.height = `${cropPreviewRect.height}%`;
+    }
+    if (cropShadeRightRef.current) {
+      cropShadeRightRef.current.style.left = `${cropPreviewRect.left + cropPreviewRect.width}%`;
+      cropShadeRightRef.current.style.top = `${cropPreviewRect.top}%`;
+      cropShadeRightRef.current.style.width = `${100 - (cropPreviewRect.left + cropPreviewRect.width)}%`;
+      cropShadeRightRef.current.style.height = `${cropPreviewRect.height}%`;
+    }
+    if (cropSelectionRef.current) {
+      cropSelectionRef.current.style.left = `${cropPreviewRect.left}%`;
+      cropSelectionRef.current.style.top = `${cropPreviewRect.top}%`;
+      cropSelectionRef.current.style.width = `${cropPreviewRect.width}%`;
+      cropSelectionRef.current.style.height = `${cropPreviewRect.height}%`;
+    }
+  }, []);
+
+  const computeDraggedCropRect = useCallback((drag: CropDragState, deltaSourceX: number, deltaSourceY: number): CropRectPx => {
+    if (drag.handle === 'move') {
+      return clampCropRectByRatio(
+        {
+          ...drag.startRect,
+          sx: drag.startRect.sx + deltaSourceX,
+          sy: drag.startRect.sy + deltaSourceY,
+        },
+        drag.sourceWidth,
+        drag.sourceHeight,
+        drag.targetRatio,
+      );
+    }
+    return rotateCropRectByHandle(
+      drag.startRect,
+      drag.sourceWidth,
+      drag.sourceHeight,
+      drag.targetRatio,
+      drag.handle,
+      deltaSourceX,
+      deltaSourceY,
+    );
+  }, []);
+
   const handleCropPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>, handle: CropResizeHandle) => {
     if (!pendingImageUpload || !cropPreviewRef.current) return;
     if (event.button !== 0) return;
@@ -1431,6 +1521,7 @@ export function IosDoodlerStudio() {
       sourceHeight,
       targetRatio: handleTargetRatio,
       startRect: sourceRect,
+      previewRect: sourceRect,
       previewWidth: rect.width,
       previewHeight: rect.height,
     };
@@ -1440,33 +1531,6 @@ export function IosDoodlerStudio() {
     }
     event.preventDefault();
   }, [pendingImageUpload]);
-
-  const clampPendingCropRect = useCallback((rect: CropRectPx) => {
-    if (!pendingImageUpload) return rect;
-    const targetRatio = pendingImageUpload.targetWidth / pendingImageUpload.targetHeight;
-    return clampCropRectByRatio(
-      {
-        sx: rect.sx,
-        sy: rect.sy,
-        sw: rect.sw,
-        sh: rect.sh,
-      },
-      pendingImageUpload.sourceAsset.width,
-      pendingImageUpload.sourceAsset.height,
-      targetRatio,
-    );
-  }, [pendingImageUpload]);
-
-  const updateCropRect = useCallback((updater: (current: CropRectPx) => CropRectPx) => {
-    setPendingImageUpload((previous) => {
-      if (!previous) return previous;
-      const next = clampPendingCropRect(updater(previous.cropRect));
-      return {
-        ...previous,
-        cropRect: next,
-      };
-    });
-  }, [clampPendingCropRect]);
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
@@ -1478,26 +1542,9 @@ export function IosDoodlerStudio() {
       const deltaSourceX = drag.previewWidth > 0 ? (deltaClientX * drag.sourceWidth) / drag.previewWidth : 0;
       const deltaSourceY = drag.previewHeight > 0 ? (deltaClientY * drag.sourceHeight) / drag.previewHeight : 0;
 
-      if (drag.handle === 'move') {
-        updateCropRect((current) => ({
-          ...current,
-          sx: drag.startRect.sx + deltaSourceX,
-          sy: drag.startRect.sy + deltaSourceY,
-        }));
-        return;
-      }
-
-      updateCropRect(() =>
-        rotateCropRectByHandle(
-          drag.startRect,
-          drag.sourceWidth,
-          drag.sourceHeight,
-          drag.targetRatio,
-          drag.handle,
-          deltaSourceX,
-          deltaSourceY,
-        ),
-      );
+      const nextRect = computeDraggedCropRect(drag, deltaSourceX, deltaSourceY);
+      drag.previewRect = nextRect;
+      applyCropPreviewRect(nextRect, drag.sourceWidth, drag.sourceHeight);
     };
 
     const onPointerUp = (event: PointerEvent) => {
@@ -1508,8 +1555,23 @@ export function IosDoodlerStudio() {
         drag.pointerCaptureTarget.releasePointerCapture(event.pointerId);
       }
 
+      const finalRect = drag.previewRect;
       cropDragRef.current = null;
-      onPointerMove(event);
+      setPendingImageUpload((previous) => {
+        if (!previous) return previous;
+        if (
+          previous.cropRect.sx === finalRect.sx
+          && previous.cropRect.sy === finalRect.sy
+          && previous.cropRect.sw === finalRect.sw
+          && previous.cropRect.sh === finalRect.sh
+        ) {
+          return previous;
+        }
+        return {
+          ...previous,
+          cropRect: finalRect,
+        };
+      });
     };
 
     window.addEventListener('pointermove', onPointerMove);
@@ -1520,7 +1582,16 @@ export function IosDoodlerStudio() {
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [updateCropRect]);
+  }, [applyCropPreviewRect, computeDraggedCropRect]);
+
+  useEffect(() => {
+    if (!pendingImageUpload) return;
+    applyCropPreviewRect(
+      pendingImageUpload.cropRect,
+      pendingImageUpload.sourceAsset.width,
+      pendingImageUpload.sourceAsset.height,
+    );
+  }, [applyCropPreviewRect, pendingImageUpload]);
 
   const handleOpenImportJsonModal = useCallback(() => {
     setImportJsonError(null);
@@ -2068,17 +2139,27 @@ export function IosDoodlerStudio() {
     ));
   }, []);
 
-  const handleEditorColorChange = useCallback((value: string) => {
-    if (!editingSlot || !selectedLabel) return;
-    mutateSlot(editingSlot.id, (slot) => updateLabel(slot, selectedLabel.id, { color: value }));
-  }, [editingSlot, mutateSlot, selectedLabel]);
+  const queueEditorColorCommit = useCallback((slotId: string, labelId: string, color: string) => {
+    pendingColorCommitRef.current = { slotId, labelId, color };
+    if (colorCommitTimerRef.current !== null) {
+      window.clearTimeout(colorCommitTimerRef.current);
+    }
+    colorCommitTimerRef.current = window.setTimeout(() => {
+      flushPendingColorCommit();
+    }, COLOR_COMMIT_DEBOUNCE_MS);
+  }, [flushPendingColorCommit]);
 
   const handleEditorColorPreview = useCallback((value: string) => {
-    if (!selectedLabel) return;
-    const labelElement = findLabelOverlayElement(selectedLabel.id);
-    if (!labelElement) return;
-    labelElement.style.color = value;
-  }, [selectedLabel]);
+    if (!editingSlot || !selectedLabel) return;
+    const labelElement = selectedLabelElementRef.current ?? findLabelOverlayElement(selectedLabel.id);
+    if (labelElement) {
+      selectedLabelElementRef.current = labelElement;
+      if (labelElement.style.color !== value) {
+        labelElement.style.color = value;
+      }
+    }
+    queueEditorColorCommit(editingSlot.id, selectedLabel.id, value);
+  }, [editingSlot, queueEditorColorCommit, selectedLabel]);
 
   const handleEditorTextChange = useCallback((value: string) => {
     if (!editingSlot || !selectedLabel) return;
@@ -2525,10 +2606,12 @@ export function IosDoodlerStudio() {
                     />
                     <div className="absolute inset-0">
                       <div
+                        ref={cropShadeTopRef}
                         className="pointer-events-none absolute bg-black/35"
                         style={{ left: 0, right: 0, top: 0, height: `${cropPreviewRect.top}%` }}
                       />
                       <div
+                        ref={cropShadeBottomRef}
                         className="pointer-events-none absolute bg-black/35"
                         style={{
                           left: 0,
@@ -2538,6 +2621,7 @@ export function IosDoodlerStudio() {
                         }}
                       />
                       <div
+                        ref={cropShadeLeftRef}
                         className="pointer-events-none absolute bg-black/35"
                         style={{
                           left: 0,
@@ -2547,6 +2631,7 @@ export function IosDoodlerStudio() {
                         }}
                       />
                       <div
+                        ref={cropShadeRightRef}
                         className="pointer-events-none absolute bg-black/35"
                         style={{
                           left: `${cropPreviewRect.left + cropPreviewRect.width}%`,
@@ -2556,6 +2641,7 @@ export function IosDoodlerStudio() {
                         }}
                       />
                       <div
+                        ref={cropSelectionRef}
                         className={cn('absolute', SELECTION_FRAME_CLASS)}
                         style={{
                           left: `${cropPreviewRect.left}%`,
@@ -3077,7 +3163,6 @@ export function IosDoodlerStudio() {
                           key={`label-color-${selectedLabel.id}`}
                           defaultValue={selectedLabel.color}
                           onInput={(event) => handleEditorColorPreview(event.currentTarget.value)}
-                          onChange={(event) => handleEditorColorChange(event.currentTarget.value)}
                           className="h-9 w-14 cursor-pointer p-0.5"
                         />
                         <Input
