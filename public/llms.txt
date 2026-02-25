@@ -1,0 +1,53 @@
+# iOS Doodler
+
+iOS Doodler is a web app for creating localized iOS App Store screenshots.
+
+## Core purpose
+- Upload screenshot templates (shots)
+- Place and style text labels on top of each shot
+- Reuse label positions across multiple languages
+- Preview per-language outputs
+- Export generated images for one language or all enabled languages
+
+## Main workflow
+1. Upload shot images in the Screenshot Strip
+2. Open Screenshot Editor for a shot
+3. Add/move/resize/rotate labels and edit text
+4. Switch preview language in the language panel
+5. Download one shot or all generated shots
+
+## Image behavior
+- If uploaded image aspect ratio matches target shot ratio, image is auto-resized to target size
+- If aspect ratio does not match, user selects crop anchor (left/center/right or top/center/bottom) before apply
+
+## JSON text import
+- Import is available from "Import JSON"
+- Supported format is direct language-map only
+- Root keys are language codes, values are objects of label keys and string values
+- Example:
+{
+  "en-US": {
+    "label_1": "Plan your day faster",
+    "label_2": "Main copy"
+  },
+  "es-ES": {
+    "label_1": "Planifica tu dia mas rapido",
+    "label_2": "Texto principal"
+  }
+}
+- Legacy envelope format with "translations" or "slots" is rejected
+
+## Language and persistence
+- Multiple App Store language codes are supported
+- Enabled language list is user-selectable
+- Studio state is persisted in browser IndexedDB
+
+## Platform scope
+- Designed for desktop and iPad usage
+- Small screens show a warning state
+
+## Tech stack
+- Next.js (App Router)
+- TypeScript
+- shadcn/ui
+- Prisma + SQLite

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Toaster } from "sonner";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -15,52 +16,98 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const SITE_TITLE = "iOS Doodler | Localized App Store Screenshot Generator";
+const SITE_DESCRIPTION =
+  "Create localized iOS App Store screenshots in minutes: upload templates, place labels once, preview every language, and export PNG shot packs grouped by locale.";
+
+const verificationOther: Record<string, string> = {};
+if (process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION) {
+  verificationOther["msvalidate.01"] = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION;
+}
+if (process.env.NEXT_PUBLIC_PINTEREST_SITE_VERIFICATION) {
+  verificationOther["p:domain_verify"] = process.env.NEXT_PUBLIC_PINTEREST_SITE_VERIFICATION;
+}
+if (process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION) {
+  verificationOther["facebook-domain-verification"] = process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION;
+}
+if (process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION) {
+  verificationOther["naver-site-verification"] = process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION;
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Open iOS Doodler | iOS Screenshot Generator",
-    template: "%s | Open iOS Doodler",
+    default: SITE_TITLE,
+    template: "%s | iOS Doodler",
   },
-  description:
-    "Create App Store screenshots faster: upload templates, place labels once, preview any language, and generate grouped image sets for iPhone and iPad sizes.",
-  applicationName: "Open iOS Doodler",
+  description: SITE_DESCRIPTION,
+  applicationName: "iOS Doodler",
+  category: "productivity",
+  creator: "iOS Doodler",
+  publisher: "iOS Doodler",
+  referrer: "origin-when-cross-origin",
   keywords: [
+    "iOS Doodler",
     "iOS screenshot generator",
     "App Store screenshots",
+    "App Store screenshot generator",
     "localized screenshots",
+    "App Store localization",
     "iPhone screenshot templates",
     "iPad screenshot generator",
+    "localized app screenshots",
+    "screenshot translation tool",
+    "multilingual screenshot editor",
+    "ASO screenshot generator",
+    "app store assets",
+    "iOS marketing screenshots",
   ],
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    yahoo: process.env.NEXT_PUBLIC_YAHOO_SITE_VERIFICATION,
+    yandex: process.env.NEXT_PUBLIC_YANDEX_SITE_VERIFICATION,
+    other: Object.keys(verificationOther).length > 0 ? verificationOther : undefined,
+  },
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     url: "/",
-    siteName: "Open iOS Doodler",
-    title: "Open iOS Doodler | iOS Screenshot Generator",
-    description:
-      "Upload screenshot templates, bind text labels, and export localized iOS screenshot packs.",
+    locale: "en_US",
+    siteName: "iOS Doodler",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     images: [
       {
         url: "/opengraph.png",
         width: 1200,
         height: 630,
-        alt: "Open iOS Doodler - Localized iOS screenshot generation",
+        alt: "iOS Doodler - Localized App Store screenshot generation",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Open iOS Doodler | iOS Screenshot Generator",
-    description:
-      "Generate iPhone and iPad screenshots in multiple languages from reusable templates.",
+    site: process.env.NEXT_PUBLIC_TWITTER_SITE || undefined,
+    creator: process.env.NEXT_PUBLIC_TWITTER_CREATOR || undefined,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     images: ["/opengraph.png"],
+  },
+  other: {
+    "format-detection": "telephone=no",
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
 };
 
@@ -74,7 +121,10 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} antialiased`}
       >
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+        </TooltipProvider>
       </body>
     </html>
   );
