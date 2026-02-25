@@ -2235,39 +2235,32 @@ export function IosDoodlerStudio() {
               </div>
 
               <div className="h-full overflow-auto p-3 pb-1.5">
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
-                  <PencilRuler className="h-4 w-4" />
-                  Label Controls
-                </div>
 
                 {!selectedLabel ? (
                   <p className="text-xs leading-4 text-slate-500">Drop any text key onto the screenshot to start editing.</p>
                 ) : (
                   <div className="space-y-1.5">
-                    <div className="space-y-1">
-                      <Label>Select label</Label>
-                      <div className="flex items-center gap-2">
-                        <Select value={selectedLabel.id} onValueChange={setSelectedLabelId}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {editorLabelOptions.map((option) => (
-                              <SelectItem key={option.id} value={option.id}>{option.title}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="shrink-0 text-rose-600 hover:text-rose-700"
-                          onClick={() => handleEditorRemoveLabel()}
-                          aria-label="Remove selected label"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Select value={selectedLabel.id} onValueChange={setSelectedLabelId} className="min-w-0 flex-1">
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {editorLabelOptions.map((option) => (
+                            <SelectItem key={option.id} value={option.id}>{option.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 text-rose-600 hover:text-rose-700"
+                        onClick={() => handleEditorRemoveLabel()}
+                        aria-label="Remove selected label"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
 
                     <div className="space-y-1">
