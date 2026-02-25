@@ -2242,7 +2242,7 @@ export function IosDoodlerStudio() {
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <Select value={selectedLabel.id} onValueChange={setSelectedLabelId} className="min-w-0 flex-1">
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="h-9 w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -2266,7 +2266,7 @@ export function IosDoodlerStudio() {
                     <div className="space-y-1">
                       <Label>Text ({activeLanguageCode.toUpperCase()})</Label>
                       <Input
-                        className="h-7"
+                        className="h-9"
                         value={resolveLabelText(editingSlot, activeLanguageCode, selectedLabel.key)}
                         onChange={(event) => handleEditorTextChange(event.target.value)}
                       />
@@ -2276,7 +2276,7 @@ export function IosDoodlerStudio() {
                       <div className="space-y-1">
                         <Label>X (px)</Label>
                         <Input
-                          className="h-7"
+                          className="h-9"
                           value={
                             editingAsset && selectedLabelNumericDraft
                               ? selectedLabelNumericDraft.x
@@ -2297,7 +2297,7 @@ export function IosDoodlerStudio() {
                       <div className="space-y-1">
                         <Label>Y (px)</Label>
                         <Input
-                          className="h-7"
+                          className="h-9"
                           value={
                             editingAsset && selectedLabelNumericDraft
                               ? selectedLabelNumericDraft.y
@@ -2318,7 +2318,7 @@ export function IosDoodlerStudio() {
                       <div className="space-y-1">
                         <Label>Width (px)</Label>
                         <Input
-                          className="h-7"
+                          className="h-9"
                           value={
                             editingAsset && selectedLabelNumericDraft
                               ? selectedLabelNumericDraft.width
@@ -2339,7 +2339,7 @@ export function IosDoodlerStudio() {
                       <div className="space-y-1">
                         <Label>Height (px)</Label>
                         <Input
-                          className="h-7"
+                          className="h-9"
                           value={
                             editingAsset && selectedLabelNumericDraft
                               ? selectedLabelNumericDraft.height
@@ -2360,7 +2360,7 @@ export function IosDoodlerStudio() {
                       <div className="space-y-1">
                         <Label>Font size (px)</Label>
                         <Input
-                          className="h-7"
+                          className="h-9"
                           value={
                             editingAsset && selectedLabelNumericDraft
                               ? selectedLabelNumericDraft.fontSize
@@ -2380,7 +2380,7 @@ export function IosDoodlerStudio() {
                       <div className="space-y-1">
                         <Label>Weight</Label>
                         <Input
-                          className="h-7"
+                          className="h-9"
                           value={selectedLabelNumericDraft?.fontWeight ?? String(selectedLabel.fontWeight)}
                           onChange={(event) => handleEditorPixelChange('fontWeight', event.target.value)}
                           onBlur={() => commitSelectedLabelNumericInput('fontWeight')}
@@ -2396,7 +2396,7 @@ export function IosDoodlerStudio() {
                       <div className="space-y-1">
                         <Label>Max lines</Label>
                         <Input
-                          className="h-7"
+                          className="h-9"
                           value={selectedLabelNumericDraft?.maxLines ?? String(selectedLabel.maxLines)}
                           onChange={(event) => handleEditorPixelChange('maxLines', event.target.value)}
                           onBlur={() => commitSelectedLabelNumericInput('maxLines')}
@@ -2428,7 +2428,7 @@ export function IosDoodlerStudio() {
                             min={-180}
                             max={180}
                             step={1}
-                            className="h-7 w-20 px-2 text-center font-mono text-sm"
+                            className="h-9 w-20 px-2 text-center font-mono text-sm"
                             value={String(rotationValue)}
                             onChange={(event) => handleEditorRotationChange(event.target.value)}
                           />
@@ -2473,7 +2473,7 @@ export function IosDoodlerStudio() {
                               value={fontFilterQuery}
                               onChange={(event) => setFontFilterQuery(event.target.value)}
                               placeholder="Search fonts"
-                              className="h-6 pl-8"
+                              className="h-7 pl-8"
                               autoFocus
                             />
                           </div>
@@ -2489,7 +2489,7 @@ export function IosDoodlerStudio() {
                                     <Button
                                       type="button"
                                       variant={isSelectedFont ? 'default' : 'outline'}
-                                      className="min-w-0 flex-1 justify-between h-7 px-2 text-left text-xs"
+                                      className="min-w-0 flex-1 justify-between h-9 px-2 text-left text-xs"
                                       onClick={() => handleEditorFontFamilyChange(fontFamily)}
                                       style={{ fontFamily }}
                                     >
@@ -2500,7 +2500,7 @@ export function IosDoodlerStudio() {
                                       type="button"
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7 shrink-0"
+                                      className="h-9 w-9 shrink-0"
                                       onClick={() => handleToggleFavoriteFont(fontFamily)}
                                       aria-label={isFavorite ? `Remove ${fontFamily} from favorites` : `Add ${fontFamily} to favorites`}
                                     >
@@ -2522,12 +2522,12 @@ export function IosDoodlerStudio() {
                           type="color"
                           value={selectedLabel.color}
                           onChange={(event) => handleEditorColorChange(event.target.value)}
-                          className="h-7 w-14 cursor-pointer p-0.5"
+                          className="h-9 w-14 cursor-pointer p-0.5"
                         />
                         <Input
                           value={selectedLabel.color}
                           readOnly
-                          className="h-7 text-xs"
+                          className="h-9 text-xs"
                           onFocus={(event) => event.currentTarget.blur()}
                           aria-readonly="true"
                         />
