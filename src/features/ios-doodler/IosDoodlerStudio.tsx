@@ -180,6 +180,11 @@ const DEFAULT_SLOT_WIDTH = 1290;
 const DEFAULT_SLOT_HEIGHT = 2796;
 const LABEL_KEY_DRAG_MIME = 'text/x-ios-doodler-label-key';
 const MIN_FONT_SIZE_PX = 6;
+const SELECTION_BORDER_COLOR = 'rgb(2 132 199)';
+const SELECTION_BORDER_WIDTH = 2;
+const SELECTION_FRAME_CLASS = 'cursor-move border-solid bg-sky-500/15 shadow-sm';
+const SELECTION_BADGE_CLASS = 'pointer-events-none absolute left-1 top-1 rounded-sm bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-sky-800';
+const SELECTION_HANDLE_BASE_CLASS = 'h-4 w-4 rounded-full border border-sky-700 bg-white';
 const DEFAULT_FONT_FAMILIES = [
   'Arial',
   'Helvetica',
@@ -782,15 +787,16 @@ function LabelOverlay({
                     ? 'center'
                     : 'end';
                 const handleScale = Math.min(Math.max(scale > 0 ? 1 / scale : 1, 1), 6);
+                const selectedBorderWidth = SELECTION_BORDER_WIDTH * handleScale;
             const resizeHandles: Array<{ edge: ResizeEdge; className: string; ariaLabel: string }> = [
-              { edge: 'left', className: 'absolute -left-2 top-2 bottom-2 w-4 cursor-ew-resize', ariaLabel: 'Resize left edge' },
-              { edge: 'right', className: 'absolute -right-2 top-2 bottom-2 w-4 cursor-ew-resize', ariaLabel: 'Resize right edge' },
-              { edge: 'top', className: 'absolute -top-2 left-2 right-2 h-4 cursor-ns-resize', ariaLabel: 'Resize top edge' },
-              { edge: 'bottom', className: 'absolute -bottom-2 left-2 right-2 h-4 cursor-ns-resize', ariaLabel: 'Resize bottom edge' },
-              { edge: 'top-left', className: 'absolute -left-2 -top-2 h-4 w-4 cursor-nwse-resize', ariaLabel: 'Resize top left corner' },
-              { edge: 'top-right', className: 'absolute -right-2 -top-2 h-4 w-4 cursor-nesw-resize', ariaLabel: 'Resize top right corner' },
-              { edge: 'bottom-left', className: 'absolute -left-2 -bottom-2 h-4 w-4 cursor-nesw-resize', ariaLabel: 'Resize bottom left corner' },
-              { edge: 'bottom-right', className: 'absolute -right-2 -bottom-2 h-4 w-4 cursor-nwse-resize', ariaLabel: 'Resize bottom right corner' },
+              { edge: 'left', className: 'absolute -left-2 top-[calc(50%-0.5rem)] cursor-ew-resize', ariaLabel: 'Resize left edge' },
+              { edge: 'right', className: 'absolute -right-2 top-[calc(50%-0.5rem)] cursor-ew-resize', ariaLabel: 'Resize right edge' },
+              { edge: 'top', className: 'absolute left-[calc(50%-0.5rem)] -top-2 cursor-ns-resize', ariaLabel: 'Resize top edge' },
+              { edge: 'bottom', className: 'absolute left-[calc(50%-0.5rem)] -bottom-2 cursor-ns-resize', ariaLabel: 'Resize bottom edge' },
+              { edge: 'top-left', className: 'absolute -left-2 -top-2 cursor-nwse-resize', ariaLabel: 'Resize top left corner' },
+              { edge: 'top-right', className: 'absolute -right-2 -top-2 cursor-nesw-resize', ariaLabel: 'Resize top right corner' },
+              { edge: 'bottom-left', className: 'absolute -left-2 -bottom-2 cursor-nesw-resize', ariaLabel: 'Resize bottom left corner' },
+              { edge: 'bottom-right', className: 'absolute -right-2 -bottom-2 cursor-nwse-resize', ariaLabel: 'Resize bottom right corner' },
             ];
             return (
               <div
@@ -798,8 +804,8 @@ function LabelOverlay({
                 data-label-overlay="true"
                 className={cn(
                   'absolute select-none whitespace-pre-wrap leading-[1.14] text-balance',
-                  showGuides && 'pointer-events-auto rounded-xl border-2 border-dotted border-sky-700/95 bg-sky-50/12',
-                  showGuides && isSelected && 'border-sky-900 shadow-[0_0_0_2px_rgba(2,6,23,0.28),_0_0_0_3px_rgba(15,23,42,0.14)]',
+                  showGuides && 'pointer-events-auto border border-sky-300/80 bg-sky-500/5',
+                  showGuides && isSelected && SELECTION_FRAME_CLASS,
                 )}
                 onPointerDown={(event) => {
                   if (!showGuides || !onLabelPointerDown) return;
@@ -825,12 +831,23 @@ function LabelOverlay({
                   background: 'transparent',
                   transform: `rotate(${box.rotation}deg)`,
                   transformOrigin: '50% 50%',
-                  cursor: showGuides
-                    ? (isSelected ? 'grab' : 'move')
-                    : undefined,
+                  cursor: showGuides ? 'move' : undefined,
                   touchAction: 'none',
+                  borderColor: showGuides && isSelected ? SELECTION_BORDER_COLOR : undefined,
+                  borderWidth: showGuides && isSelected ? `${selectedBorderWidth}px` : undefined,
                 }}
                 >
+                  {showGuides && isSelected ? (
+                    <div
+                      className={cn(SELECTION_BADGE_CLASS, 'inline-flex items-center gap-1')}
+                      style={{
+                        transform: `scale(${handleScale})`,
+                        transformOrigin: 'left top',
+                      }}
+                    >
+                      {Math.round(box.width)} x {Math.round(box.height)} px
+                    </div>
+                  ) : null}
                   <span
                     className="block w-full whitespace-pre-wrap leading-[1.14]"
                     style={{
@@ -853,7 +870,7 @@ function LabelOverlay({
                         key={handle.edge}
                         type="button"
                         aria-label={handle.ariaLabel}
-                        className={cn('z-20 rounded-none border-none bg-transparent p-0', handle.className)}
+                        className={cn('z-20 border-none p-0', SELECTION_HANDLE_BASE_CLASS, handle.className)}
                         style={{
                           transform: `scale(${handleScale})`,
                           transformOrigin: 'center',
@@ -1790,12 +1807,7 @@ export function IosDoodlerStudio() {
         rotation,
       };
 
-      if (dragFrameRequestRef.current === null) {
-        dragFrameRequestRef.current = requestAnimationFrame(() => {
-          dragFrameRequestRef.current = null;
-          applyPendingDragUpdate();
-        });
-      }
+      applyPendingDragUpdate();
     };
 
     const onPointerUp = (event: PointerEvent) => {
@@ -2440,66 +2452,92 @@ export function IosDoodlerStudio() {
                         }}
                       />
                       <div
-                        className="absolute cursor-move border-2 border-sky-600 bg-sky-500/15 shadow-sm"
+                        className={cn('absolute', SELECTION_FRAME_CLASS)}
                         style={{
                           left: `${cropPreviewRect.left}%`,
                           top: `${cropPreviewRect.top}%`,
                           width: `${cropPreviewRect.width}%`,
                           height: `${cropPreviewRect.height}%`,
                           touchAction: 'none',
+                          borderColor: SELECTION_BORDER_COLOR,
+                          borderWidth: `${SELECTION_BORDER_WIDTH}px`,
                         }}
                         onPointerDown={(event) => handleCropPointerDown(event, 'move')}
                       >
-                        <div className="pointer-events-none absolute left-1 top-1 rounded-sm bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-sky-800">
+                        <div className={SELECTION_BADGE_CLASS}>
                           Cropping area
                         </div>
                         <div
                           role="presentation"
-                          className="absolute -left-2 top-1/2 h-4 w-4 -translate-y-1/2 cursor-ew-resize rounded-full border border-sky-700 bg-white"
+                          className={cn('absolute -left-2 top-1/2 -translate-y-1/2 cursor-ew-resize', SELECTION_HANDLE_BASE_CLASS)}
                           style={{ touchAction: 'none' }}
-                          onPointerDown={(event) => handleCropPointerDown(event, 'left')}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            handleCropPointerDown(event, 'left');
+                          }}
                         />
                         <div
                           role="presentation"
-                          className="absolute -right-2 top-1/2 h-4 w-4 -translate-y-1/2 cursor-ew-resize rounded-full border border-sky-700 bg-white"
+                          className={cn('absolute -right-2 top-1/2 -translate-y-1/2 cursor-ew-resize', SELECTION_HANDLE_BASE_CLASS)}
                           style={{ touchAction: 'none' }}
-                          onPointerDown={(event) => handleCropPointerDown(event, 'right')}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            handleCropPointerDown(event, 'right');
+                          }}
                         />
                         <div
                           role="presentation"
-                          className="absolute left-1/2 -top-2 h-4 w-4 -translate-x-1/2 cursor-ns-resize rounded-full border border-sky-700 bg-white"
+                          className={cn('absolute left-1/2 -top-2 -translate-x-1/2 cursor-ns-resize', SELECTION_HANDLE_BASE_CLASS)}
                           style={{ touchAction: 'none' }}
-                          onPointerDown={(event) => handleCropPointerDown(event, 'top')}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            handleCropPointerDown(event, 'top');
+                          }}
                         />
                         <div
                           role="presentation"
-                          className="absolute left-1/2 -bottom-2 h-4 w-4 -translate-x-1/2 cursor-ns-resize rounded-full border border-sky-700 bg-white"
+                          className={cn('absolute left-1/2 -bottom-2 -translate-x-1/2 cursor-ns-resize', SELECTION_HANDLE_BASE_CLASS)}
                           style={{ touchAction: 'none' }}
-                          onPointerDown={(event) => handleCropPointerDown(event, 'bottom')}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            handleCropPointerDown(event, 'bottom');
+                          }}
                         />
                         <div
                           role="presentation"
-                          className="absolute -left-2 -top-2 h-4 w-4 cursor-nwse-resize rounded-full border border-sky-700 bg-white"
+                          className={cn('absolute -left-2 -top-2 cursor-nwse-resize', SELECTION_HANDLE_BASE_CLASS)}
                           style={{ touchAction: 'none' }}
-                          onPointerDown={(event) => handleCropPointerDown(event, 'top-left')}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            handleCropPointerDown(event, 'top-left');
+                          }}
                         />
                         <div
                           role="presentation"
-                          className="absolute -right-2 -top-2 h-4 w-4 cursor-nesw-resize rounded-full border border-sky-700 bg-white"
+                          className={cn('absolute -right-2 -top-2 cursor-nesw-resize', SELECTION_HANDLE_BASE_CLASS)}
                           style={{ touchAction: 'none' }}
-                          onPointerDown={(event) => handleCropPointerDown(event, 'top-right')}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            handleCropPointerDown(event, 'top-right');
+                          }}
                         />
                         <div
                           role="presentation"
-                          className="absolute -left-2 -bottom-2 h-4 w-4 cursor-nesw-resize rounded-full border border-sky-700 bg-white"
+                          className={cn('absolute -left-2 -bottom-2 cursor-nesw-resize', SELECTION_HANDLE_BASE_CLASS)}
                           style={{ touchAction: 'none' }}
-                          onPointerDown={(event) => handleCropPointerDown(event, 'bottom-left')}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            handleCropPointerDown(event, 'bottom-left');
+                          }}
                         />
                         <div
                           role="presentation"
-                          className="absolute -right-2 -bottom-2 h-4 w-4 cursor-nwse-resize rounded-full border border-sky-700 bg-white"
+                          className={cn('absolute -right-2 -bottom-2 cursor-nwse-resize', SELECTION_HANDLE_BASE_CLASS)}
                           style={{ touchAction: 'none' }}
-                          onPointerDown={(event) => handleCropPointerDown(event, 'bottom-right')}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            handleCropPointerDown(event, 'bottom-right');
+                          }}
                         />
                       </div>
                     </div>
