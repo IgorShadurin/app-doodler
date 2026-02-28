@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import JSZip from 'jszip';
 import {
   Monitor,
   Languages,
@@ -98,7 +97,6 @@ import {
   LEGACY_DEFAULT_SCREENSHOT_WIDTH,
   SCREENSHOT_OPAQUE_BACKGROUND_HEX,
 } from '@/lib/defaults';
-import { buildScreenshotsRelativePath } from '@/lib/exporter';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -340,6 +338,38 @@ function toFastlaneShotFileName(order: number): string {
   return `${String(order).padStart(2, '0')}-shot.png`;
 }
 
+function isSupportedImageFile(file: File): boolean {
+  const normalizedMimeType = file.type.toLowerCase();
+  if (normalizedMimeType.startsWith('image/')) return true;
+  const normalizedName = file.name.toLowerCase();
+  return (
+    normalizedName.endsWith('.png')
+    || normalizedName.endsWith('.jpg')
+    || normalizedName.endsWith('.jpeg')
+    || normalizedName.endsWith('.webp')
+  );
+}
+
+function hasDraggedFiles(dataTransfer: DataTransfer | null): boolean {
+  if (!dataTransfer) return false;
+  if (dataTransfer.files && dataTransfer.files.length > 0) return true;
+  if (dataTransfer.items && Array.from(dataTransfer.items).some((item) => item.kind === 'file')) return true;
+  return Array.from(dataTransfer.types).some((type) => type.toLowerCase() === 'files');
+}
+
+function getDroppedImageFile(dataTransfer: DataTransfer | null): File | null {
+  if (!dataTransfer) return null;
+  const fromItems = dataTransfer.items
+    ? Array.from(dataTransfer.items)
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => Boolean(file))
+    : [];
+  const fromFiles = dataTransfer.files ? Array.from(dataTransfer.files) : [];
+  const files = [...fromItems, ...fromFiles];
+  return files.find((file) => isSupportedImageFile(file)) ?? null;
+}
+
 function computeScreenshotCornerRadius(displayWidth: number): number {
   if (!Number.isFinite(displayWidth) || displayWidth <= 0) {
     return IOS_SCREENSHOT_CORNER_RADIUS_MIN_PX;
@@ -576,12 +606,20 @@ function normalizeProjectFileName(fileName: string): string {
 }
 
 function useElementSize<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
+  const [node, setNode] = useState<T | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const ref = useCallback((element: T | null) => {
+    setNode(element);
+    if (!element) {
+      setSize({ width: 0, height: 0 });
+    }
+  }, []);
 
   useEffect(() => {
-    if (!ref.current) return;
-    const node = ref.current;
+    if (!node) return;
+    const initialRect = node.getBoundingClientRect();
+    setSize({ width: initialRect.width, height: initialRect.height });
+
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
@@ -590,7 +628,7 @@ function useElementSize<T extends HTMLElement>() {
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [node]);
 
   return [ref, size] as const;
 }
@@ -602,6 +640,43 @@ function triggerBlobDownload(blob: Blob, fileName: string) {
   anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function describeExportError(error: unknown): string {
+  if (error instanceof DOMException) {
+    const message = error.message?.trim();
+    return message ? `${error.name}: ${message}` : error.name;
+  }
+  if (error instanceof Error) {
+    const message = error.message?.trim();
+    return message || error.name || 'unknown export error';
+  }
+  if (typeof error === 'string') {
+    return error.trim() || 'unknown export error';
+  }
+  return 'unknown export error';
+}
+
+async function writeBlobToFileHandle(fileHandle: FileSystemFileHandle, blob: Blob): Promise<void> {
+  const writable = await fileHandle.createWritable();
+  let writeError: unknown = null;
+  try {
+    await writable.write(blob);
+  } catch (error) {
+    writeError = error;
+  }
+
+  try {
+    await writable.close();
+  } catch (closeError) {
+    if (!writeError) {
+      writeError = closeError;
+    }
+  }
+
+  if (writeError) {
+    throw writeError;
+  }
 }
 
 function formatSize(asset: TemplateAsset | null): string {
@@ -837,6 +912,9 @@ function LabelOverlay({
   onLabelPointerDown,
   onDropLabelKey,
   onEmptyUpload,
+  onImageFileDragOver,
+  onImageFileDragLeave,
+  onImageFileDrop,
   fitMode = 'width',
 }: {
   slot: TemplateSlot;
@@ -859,6 +937,9 @@ function LabelOverlay({
   ) => void;
   onDropLabelKey?: (labelKey: string, position: { x: number; y: number }) => void;
   onEmptyUpload?: () => void;
+  onImageFileDragOver?: (event: React.DragEvent<HTMLElement>) => void;
+  onImageFileDragLeave?: (event: React.DragEvent<HTMLElement>) => void;
+  onImageFileDrop?: (event: React.DragEvent<HTMLElement>) => void;
   fitMode?: 'width' | 'contain';
 }) {
   const asset = resolveAssetForLanguage(slot, languageCode);
@@ -915,11 +996,17 @@ function LabelOverlay({
           fitMode === 'contain' ? 'h-full w-auto max-w-full' : 'w-full',
         )}
         style={{ aspectRatio: placeholderAspectRatio }}
+        onDragOver={(event) => onImageFileDragOver?.(event)}
+        onDragLeave={(event) => onImageFileDragLeave?.(event)}
+        onDrop={(event) => onImageFileDrop?.(event)}
       >
         <button
           type="button"
           onClick={onEmptyUpload}
           className="group absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-3 text-slate-500 transition hover:bg-sky-50/60 hover:text-sky-700"
+          onDragOver={(event) => onImageFileDragOver?.(event)}
+          onDragLeave={(event) => onImageFileDragLeave?.(event)}
+          onDrop={(event) => onImageFileDrop?.(event)}
         >
           <ImagePlus className="h-11 w-11" />
           <span className="text-sm font-medium">Upload image</span>
@@ -974,14 +1061,30 @@ function LabelOverlay({
         )}
         style={frameStyle}
         onDragOver={(event) => {
+          const hasFiles = hasDraggedFiles(event.dataTransfer);
+          if (hasFiles) {
+            onImageFileDragOver?.(event);
+            return;
+          }
           if (!canDropLabelKeys) return;
           event.preventDefault();
           if (!isKeyDragOver) setIsKeyDragOver(true);
         }}
-        onDragLeave={() => {
+        onDragLeave={(event) => {
+          const hasFiles = hasDraggedFiles(event.dataTransfer);
+          if (hasFiles) {
+            onImageFileDragLeave?.(event);
+            return;
+          }
           if (isKeyDragOver) setIsKeyDragOver(false);
         }}
         onDrop={(event) => {
+          const hasFiles = hasDraggedFiles(event.dataTransfer);
+          const hasImage = Boolean(getDroppedImageFile(event.dataTransfer));
+          if (hasFiles || hasImage) {
+            onImageFileDrop?.(event);
+            return;
+          }
           if (!canDropLabelKeys) return;
           event.preventDefault();
           setIsKeyDragOver(false);
@@ -1305,6 +1408,7 @@ export function IosDoodlerStudio() {
   const [projectBaselineSignature, setProjectBaselineSignature] = useState<string | null>(null);
   const [projectHistory, setProjectHistory] = useState<ProjectHistoryState | null>(null);
   const [labelNumericDrafts, setLabelNumericDrafts] = useState<Record<string, LabelNumericDraft>>({});
+  const [imageDropTargetSlotId, setImageDropTargetSlotId] = useState<string | null>(null);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const editorFileInputRef = useRef<HTMLInputElement | null>(null);
   const importJsonInputRef = useRef<HTMLInputElement | null>(null);
@@ -1322,6 +1426,8 @@ export function IosDoodlerStudio() {
   const pendingColorCommitRef = useRef<{ slotId: string; labelId: string; color: string } | null>(null);
   const colorCommitTimerRef = useRef<number | null>(null);
   const projectAutoSaveTimerRef = useRef<number | null>(null);
+  const shotStripViewportRef = useRef<HTMLDivElement | null>(null);
+  const shouldScrollToLatestShotRef = useRef(false);
   const isApplyingHistorySnapshotRef = useRef(false);
   const hasShownPersistenceWarningRef = useRef(false);
   const perfDebugCountersRef = useRef({
@@ -1718,6 +1824,32 @@ export function IosDoodlerStudio() {
     }
   }, [activeLanguageCode, mutateSlot, slots]);
 
+  const handleSlotImageDragOver = useCallback((slotId: string, event: React.DragEvent<HTMLElement>) => {
+    if (!hasDraggedFiles(event.dataTransfer)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setImageDropTargetSlotId((current) => (current === slotId ? current : slotId));
+  }, []);
+
+  const handleSlotImageDragLeave = useCallback((slotId: string, event: React.DragEvent<HTMLElement>) => {
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) return;
+    setImageDropTargetSlotId((current) => (current === slotId ? null : current));
+  }, []);
+
+  const handleSlotImageDrop = useCallback(async (slotId: string, event: React.DragEvent<HTMLElement>) => {
+    const hasFiles = hasDraggedFiles(event.dataTransfer);
+    const imageFile = getDroppedImageFile(event.dataTransfer);
+    if (!hasFiles && !imageFile) return;
+    event.preventDefault();
+    setImageDropTargetSlotId((current) => (current === slotId ? null : current));
+    if (!imageFile) {
+      toast.error('Drop PNG, JPG, or WebP image file.');
+      return;
+    }
+    await handleSlotUpload(slotId, imageFile);
+  }, [handleSlotUpload]);
+
   const handleApplyPendingImageUpload = useCallback(async () => {
     if (!pendingImageUpload) return;
 
@@ -2068,87 +2200,76 @@ export function IosDoodlerStudio() {
       return;
     }
 
+    const pickerWindow = window as Window & {
+      showDirectoryPicker?: (options?: {
+        mode?: 'read' | 'readwrite';
+        startIn?: 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos';
+        id?: string;
+      }) => Promise<FileSystemDirectoryHandle>;
+    };
+    if (!pickerWindow.showDirectoryPicker) {
+      toast.error('Directory export is not supported in this browser.');
+      return;
+    }
+
     setIsBatchExporting(true);
     try {
-      const batch: Array<{
-        languageCode: string;
-        files: Array<{ fileName: string; blob: Blob }>;
-      }> = [];
-
-      for (const languageCode of enabledLanguages) {
-        const files: Array<{ fileName: string; blob: Blob }> = [];
-        for (const slot of slots) {
-          const blob = await renderSlotBlob(slot, languageCode);
-          if (!blob) continue;
-          files.push({
-            fileName: toFastlaneShotFileName(slot.order),
-            blob,
-          });
-        }
-
-        if (files.length > 0) {
-          batch.push({ languageCode, files });
-        }
-      }
-
-      if (batch.length === 0) {
+      const hasAtLeastOneAsset = enabledLanguages.some((languageCode) =>
+        slots.some((slot) => Boolean(resolveAssetForLanguage(slot, languageCode))),
+      );
+      if (!hasAtLeastOneAsset) {
         toast.error('Nothing to export. Upload at least one template image.');
         return;
       }
 
-      const pickerWindow = window as Window & {
-        showDirectoryPicker?: (options?: {
-          mode?: 'read' | 'readwrite';
-          startIn?: 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos';
-          id?: string;
-        }) => Promise<FileSystemDirectoryHandle>;
-      };
-      if (pickerWindow.showDirectoryPicker) {
-        const rootHandle = await pickerWindow.showDirectoryPicker({
-          mode: 'readwrite',
-          startIn: 'downloads',
-          id: 'ios-doodler-screenshots-export',
-        });
-        const screenshotsDir = await rootHandle.getDirectoryHandle('screenshots', { create: true });
-        let writtenCount = 0;
-        for (const languageGroup of batch) {
-          const languageDir = await screenshotsDir.getDirectoryHandle(languageGroup.languageCode, { create: true });
-          for (const file of languageGroup.files) {
-            const fileHandle = await languageDir.getFileHandle(file.fileName, { create: true });
-            const writable = await fileHandle.createWritable();
-            await writable.write(file.blob);
-            await writable.close();
-            writtenCount += 1;
+      const rootHandle = await pickerWindow.showDirectoryPicker({
+        mode: 'readwrite',
+        startIn: 'downloads',
+        id: 'ios-doodler-screenshots-export',
+      });
+
+      let writtenCount = 0;
+      for (const languageCode of enabledLanguages) {
+        const languageDir = await rootHandle.getDirectoryHandle(languageCode, { create: true });
+        for (const slot of slots) {
+          if (!resolveAssetForLanguage(slot, languageCode)) continue;
+
+          let blob: Blob | null = null;
+          try {
+            blob = await renderSlotBlob(slot, languageCode);
+          } catch (error) {
+            throw new Error(
+              `Render failed for shot ${slot.order} (${languageCode}): ${describeExportError(error)}`,
+            );
           }
+          if (!blob) continue;
+
+          const fileName = toFastlaneShotFileName(slot.order);
+          try {
+            const fileHandle = await languageDir.getFileHandle(fileName, { create: true });
+            await writeBlobToFileHandle(fileHandle, blob);
+          } catch (error) {
+            throw new Error(
+              `Write failed for ${languageCode}/${fileName}: ${describeExportError(error)}`,
+            );
+          }
+          writtenCount += 1;
         }
-        toast.success(`Exported ${writtenCount} screenshots to screenshots/.`);
+      }
+
+      if (writtenCount === 0) {
+        toast.error('Nothing to export. Upload at least one template image.');
         return;
       }
 
-      const zip = new JSZip();
-      let total = 0;
-      for (const languageGroup of batch) {
-        for (const file of languageGroup.files) {
-          const relativePath = buildScreenshotsRelativePath(languageGroup.languageCode, file.fileName);
-          zip.file(relativePath, file.blob);
-          total += 1;
-        }
-      }
-
-      const zipBlob = await zip.generateAsync({
-        type: 'blob',
-        compression: 'DEFLATE',
-        compressionOptions: { level: 9 },
-      });
-      triggerBlobDownload(zipBlob, 'screenshots.zip');
-      toast.success(`Exported ${total} screenshots as ZIP in screenshots/<locale>/ format.`);
+      toast.success(`Exported ${writtenCount} screenshots to selected folder.`);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         toast.message('Export cancelled.');
       } else {
-        const message = error instanceof Error ? error.message : 'unknown export error';
-        console.warn('Failed to export all screenshots:', message);
-        toast.error('Failed to export screenshots.');
+        const message = describeExportError(error);
+        console.warn('Failed to export all screenshots:', message, error);
+        toast.error(`Failed to export screenshots: ${message}`);
       }
     } finally {
       setIsBatchExporting(false);
@@ -2405,6 +2526,7 @@ export function IosDoodlerStudio() {
       return;
     }
 
+    shouldScrollToLatestShotRef.current = true;
     setSlots((previous) => {
       const nextSlot = createEmptySlot(previous.length + 1);
       const usedIds = new Set(previous.map((slot) => slot.id));
@@ -2420,6 +2542,22 @@ export function IosDoodlerStudio() {
       return [...previous, nextSlot];
     });
   }, [emptyShotOrders]);
+
+  useEffect(() => {
+    if (!shouldScrollToLatestShotRef.current) return;
+    shouldScrollToLatestShotRef.current = false;
+
+    const timerId = window.setTimeout(() => {
+      const viewport = shotStripViewportRef.current;
+      if (!viewport) return;
+      viewport.scrollTo({
+        left: viewport.scrollWidth,
+        behavior: 'smooth',
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
+  }, [slots.length]);
 
   const handleRemoveSlot = useCallback((slotId: string) => {
     if (slots.length <= 1) {
@@ -2892,9 +3030,9 @@ export function IosDoodlerStudio() {
 
         <section className="space-y-3 rounded-2xl border border-slate-200/80 bg-white/88 p-4 shadow-sm">
           <div className="flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={handleResetSlots} className="gap-2">
-              <RotateCcw className="h-4 w-4" />
-              Reset All
+            <Button onClick={handleAddSlot} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Shot
             </Button>
             <Button
               variant="outline"
@@ -2904,10 +3042,6 @@ export function IosDoodlerStudio() {
             >
               <Download className="h-4 w-4" />
               {isBatchExporting ? 'Downloading...' : 'Download All'}
-            </Button>
-            <Button onClick={handleAddSlot} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Shot
             </Button>
             <Popover>
               <PopoverTrigger asChild>
@@ -2994,6 +3128,10 @@ export function IosDoodlerStudio() {
                 </div>
               </PopoverContent>
             </Popover>
+            <Button variant="outline" onClick={handleResetSlots} className="gap-2">
+              <RotateCcw className="h-4 w-4" />
+              Reset All
+            </Button>
           </div>
 
           <div className="grid grid-cols-[260px_minmax(0,1fr)] items-start gap-4">
@@ -3128,7 +3266,7 @@ export function IosDoodlerStudio() {
               </div>
             </aside>
 
-            <div className="overflow-x-auto pb-2">
+            <div ref={shotStripViewportRef} className="overflow-x-auto pb-2">
               <div className="flex min-w-max gap-4">
                 {slots.map((slot) => {
                   const asset = resolveAssetForLanguage(slot, activeLanguageCode);
@@ -3166,7 +3304,7 @@ export function IosDoodlerStudio() {
                             disabled={slots.length <= 1}
                           >
                             <Trash2 className="h-4 w-4" />
-                            Remove shot
+                            Delete
                           </Button>
                         </PopoverContent>
                       </Popover>
@@ -3186,39 +3324,56 @@ export function IosDoodlerStudio() {
                       />
                     </div>
 
-                    {asset ? (
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-                        onClick={() => handleOpenEditor(slot.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            handleOpenEditor(slot.id);
-                          }
-                        }}
-                      >
-                        <div className="w-full">
-                          <LabelOverlay
-                            slot={slot}
-                            languageCode={activeLanguageCode}
-                            showGuides={false}
-                          />
+                    <div
+                      className={cn(
+                        'rounded-[24px] transition-shadow',
+                        imageDropTargetSlotId === slot.id && 'ring-2 ring-sky-400 ring-offset-2 ring-offset-white',
+                      )}
+                    >
+                      {asset ? (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                          onClick={() => handleOpenEditor(slot.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleOpenEditor(slot.id);
+                            }
+                          }}
+                        >
+                          <div className="w-full">
+                            <LabelOverlay
+                              slot={slot}
+                              languageCode={activeLanguageCode}
+                              showGuides={false}
+                              onImageFileDragOver={(event) => handleSlotImageDragOver(slot.id, event)}
+                              onImageFileDragLeave={(event) => handleSlotImageDragLeave(slot.id, event)}
+                              onImageFileDrop={(event) => {
+                                void handleSlotImageDrop(slot.id, event);
+                              }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="block w-full">
-                        <div className="w-full">
-                          <LabelOverlay
-                            slot={slot}
-                            languageCode={activeLanguageCode}
-                            showGuides={false}
-                            onEmptyUpload={() => fileInputs.current[slot.id]?.click()}
-                          />
+                      ) : (
+                        <div className="block w-full">
+                          <div className="w-full">
+                            <LabelOverlay
+                              slot={slot}
+                              languageCode={activeLanguageCode}
+                              showGuides={false}
+                              onEmptyUpload={() => fileInputs.current[slot.id]?.click()}
+                              onImageFileDragOver={(event) => handleSlotImageDragOver(slot.id, event)}
+                              onImageFileDragLeave={(event) => handleSlotImageDragLeave(slot.id, event)}
+                              onImageFileDrop={(event) => {
+                                void handleSlotImageDrop(slot.id, event);
+                              }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span>{formatSize(asset)}</span>
