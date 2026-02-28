@@ -30,6 +30,12 @@ import {
   Star,
   ChevronDown,
   RefreshCw,
+  FolderOpen,
+  Save,
+  SaveAll,
+  Undo2,
+  Redo2,
+  FolderPlus,
 } from 'lucide-react';
 import {
   addLabelFromKey,
@@ -63,6 +69,22 @@ import {
   parseTranslationsImportJson,
   type ParsedTranslationsImport,
 } from '@/features/ios-doodler/translations-import';
+import {
+  clonePersistedStudioState,
+  parseProjectFileJson,
+  PROJECT_FILE_EXTENSION,
+  serializeProjectFile,
+  type PersistedStudioState,
+} from '@/features/ios-doodler/project-file';
+import {
+  canRedoProjectHistory,
+  canUndoProjectHistory,
+  createProjectHistory,
+  projectHistoryPush,
+  projectHistoryRedo,
+  projectHistoryUndo,
+  type ProjectHistoryState,
+} from '@/features/ios-doodler/project-history';
 import {
   DEFAULT_SCREENSHOT_ASPECT_RATIO_CSS,
   DEFAULT_SCREENSHOT_HEIGHT,
@@ -252,6 +274,8 @@ const SELECTION_BORDER_WIDTH = 2;
 const SELECTION_FRAME_CLASS = 'cursor-move border-solid bg-sky-500/15 shadow-sm';
 const SELECTION_BADGE_CLASS = 'pointer-events-none absolute left-1 top-1 rounded-sm bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-sky-800';
 const SELECTION_HANDLE_BASE_CLASS = 'h-4 w-4 rounded-full border border-sky-700 bg-white';
+const PROJECT_HISTORY_CAPACITY = 160;
+const DEFAULT_PROJECT_FILE_NAME = `ios-doodler-project${PROJECT_FILE_EXTENSION}`;
 const DEFAULT_FONT_FAMILIES = [
   'League Spartan',
   'Arial',
@@ -287,7 +311,7 @@ const FONT_FAMILY_ALIAS_MAP: Record<string, string> = {
 
 function resolveRuntimeFontFamily(fontFamily: string): string {
   const normalized = fontFamily.trim();
-  if (!normalized) return 'Arial, sans-serif';
+  if (!normalized) return 'Futura, Arial, sans-serif';
   return FONT_FAMILY_ALIAS_MAP[normalized] ?? normalized;
 }
 
@@ -493,17 +517,62 @@ function orderLanguageCodes(codes: string[]): string[] {
   );
 }
 
+function buildUniqueSlotId(existingIds: Set<string>, preferredOrder: number): string {
+  let counter = Math.max(1, Math.floor(preferredOrder));
+  let candidate = `slot-${counter}`;
+  while (existingIds.has(candidate)) {
+    counter += 1;
+    candidate = `slot-${counter}`;
+  }
+  return candidate;
+}
+
+function ensureUniqueSlotIds(slots: TemplateSlot[]): TemplateSlot[] {
+  const seen = new Set<string>();
+  let changed = false;
+
+  const next = slots.map((slot, index) => {
+    const rawId = typeof slot.id === 'string' ? slot.id.trim() : '';
+    const preferred = Number.isFinite(slot.order) ? slot.order : index + 1;
+    const nextId = rawId && !seen.has(rawId)
+      ? rawId
+      : buildUniqueSlotId(seen, preferred);
+    seen.add(nextId);
+    if (nextId === slot.id) return slot;
+    changed = true;
+    return {
+      ...slot,
+      id: nextId,
+    };
+  });
+
+  return changed ? next : slots;
+}
+
 function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
 }
 
 function toCanvasFontFamily(fontFamily: string): string {
   const normalized = resolveFontCssVariables(resolveRuntimeFontFamily(fontFamily)).trim();
-  if (!normalized) return 'Arial, sans-serif';
+  if (!normalized) return 'Futura, Arial, sans-serif';
   if (normalized.includes(',') || normalized.includes('"') || normalized.includes("'")) {
     return normalized;
   }
   return /[\s-]/.test(normalized) ? `"${normalized}"` : normalized;
+}
+
+type ProjectPickerWindow = Window & {
+  showSaveFilePicker?: (options?: SaveFilePickerOptions) => Promise<FileSystemFileHandle>;
+  showOpenFilePicker?: (options?: OpenFilePickerOptions) => Promise<FileSystemFileHandle[]>;
+};
+
+function normalizeProjectFileName(fileName: string): string {
+  const trimmed = fileName.trim();
+  if (!trimmed) return DEFAULT_PROJECT_FILE_NAME;
+  return trimmed.toLowerCase().endsWith(PROJECT_FILE_EXTENSION)
+    ? trimmed
+    : `${trimmed}${PROJECT_FILE_EXTENSION}`;
 }
 
 function useElementSize<T extends HTMLElement>() {
@@ -811,6 +880,33 @@ function LabelOverlay({
     onDropLabelKey(droppedKey, { x: normalizedX, y: normalizedY });
   }, [canDropLabelKeys, onDropLabelKey]);
 
+  useEffect(() => {
+    if (!asset || typeof window === 'undefined' || process.env.NODE_ENV === 'production') return;
+    const win = window as Window & { [PERF_DEBUG_WINDOW_FLAG]?: boolean };
+    if (!win[PERF_DEBUG_WINDOW_FLAG]) return;
+
+    // Debug trace for tricky cases where main slot preview shows image but labels are missing.
+    console.debug('[ios-doodler][overlay]', {
+      slotId: slot.id,
+      languageCode,
+      showGuides,
+      fitMode,
+      labelCount: slot.labels.length,
+      labelKeys: slot.labels.map((label) => label.key),
+      resolvedTexts: slot.labels.map((label) => resolveLabelText(slot, languageCode, label.key)),
+      assetId: asset.id,
+      assetSize: `${asset.width}x${asset.height}`,
+      loadedImageMatchesAsset: loadedImageSrc === asset.src,
+    });
+  }, [
+    asset,
+    fitMode,
+    languageCode,
+    loadedImageSrc,
+    showGuides,
+    slot,
+  ]);
+
   if (!asset) {
     return (
       <div
@@ -837,10 +933,11 @@ function LabelOverlay({
     : null;
   const containFrameWidth = containScale ? asset.width * containScale : null;
   const containFrameHeight = containScale ? asset.height * containScale : null;
+  const shouldGateByLoadState = showGuides || fitMode === 'contain';
   const isFrameMeasured = fitMode === 'contain'
     ? Boolean(containFrameWidth && containFrameHeight)
-    : viewportSize.width > 0;
-  const isReadyToRender = isFrameMeasured && loadedImageSrc === asset.src;
+    : true;
+  const isReadyToRender = isFrameMeasured && (!shouldGateByLoadState || loadedImageSrc === asset.src);
   const scale = fitMode === 'contain'
     ? (containFrameWidth ? containFrameWidth / asset.width : 1)
     : (viewportSize.width > 0 ? viewportSize.width / asset.width : 1);
@@ -892,6 +989,7 @@ function LabelOverlay({
         }}
       >
         <Image
+          key={asset.src}
           src={asset.src}
           alt={`Template ${slot.order}`}
           fill
@@ -901,10 +999,11 @@ function LabelOverlay({
             isReadyToRender ? 'opacity-100' : 'opacity-0',
           )}
           onLoad={() => setLoadedImageSrc(asset.src)}
+          onError={() => setLoadedImageSrc(asset.src)}
           sizes="(min-width: 1280px) 420px, (min-width: 1024px) 360px, 90vw"
         />
 
-        {!isReadyToRender ? (
+        {!isReadyToRender && shouldGateByLoadState ? (
           <div className="absolute inset-0 animate-pulse bg-slate-100/70" />
         ) : null}
 
@@ -1112,8 +1211,8 @@ function normalizeLoadedSlots(value: unknown): TemplateSlot[] | null {
               ),
           fontFamily:
             typeof (label as { fontFamily?: unknown }).fontFamily === 'string'
-              ? ((label as { fontFamily: string }).fontFamily.trim() || 'Arial')
-              : 'Arial',
+              ? ((label as { fontFamily: string }).fontFamily.trim() || 'Futura')
+              : 'Futura',
           rotation: typeof (label as { rotation?: unknown }).rotation === 'number'
             ? (label as { rotation: number }).rotation
             : 0,
@@ -1137,7 +1236,7 @@ function normalizeLoadedSlots(value: unknown): TemplateSlot[] | null {
         textByLanguage: item.textByLanguage ?? {},
       };
     });
-  return parsed.length > 0 ? parsed : null;
+  return parsed.length > 0 ? ensureUniqueSlotIds(parsed) : null;
 }
 
 function sanitizePersistedState(value: unknown): IosDoodlerPersistedState | null {
@@ -1200,6 +1299,11 @@ export function IosDoodlerStudio() {
   const [importJsonFileName, setImportJsonFileName] = useState<string | null>(null);
   const [importJsonError, setImportJsonError] = useState<string | null>(null);
   const [parsedImportJson, setParsedImportJson] = useState<ParsedTranslationsImport | null>(null);
+  const [projectFileHandle, setProjectFileHandle] = useState<FileSystemFileHandle | null>(null);
+  const [projectFileName, setProjectFileName] = useState<string | null>(null);
+  const [isProjectAutoSaveEnabled, setIsProjectAutoSaveEnabled] = useState(false);
+  const [projectBaselineSignature, setProjectBaselineSignature] = useState<string | null>(null);
+  const [projectHistory, setProjectHistory] = useState<ProjectHistoryState | null>(null);
   const [labelNumericDrafts, setLabelNumericDrafts] = useState<Record<string, LabelNumericDraft>>({});
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const editorFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1217,6 +1321,8 @@ export function IosDoodlerStudio() {
   const selectedLabelElementRef = useRef<HTMLElement | null>(null);
   const pendingColorCommitRef = useRef<{ slotId: string; labelId: string; color: string } | null>(null);
   const colorCommitTimerRef = useRef<number | null>(null);
+  const projectAutoSaveTimerRef = useRef<number | null>(null);
+  const isApplyingHistorySnapshotRef = useRef(false);
   const hasShownPersistenceWarningRef = useRef(false);
   const perfDebugCountersRef = useRef({
     dragMoves: 0,
@@ -1323,7 +1429,7 @@ export function IosDoodlerStudio() {
     const favoriteSet = new Set(favoriteFonts);
     const combined = Array.from(
       new Set(
-        [...availableFontFamilies, ...favoriteFonts, selectedLabel?.fontFamily ?? 'Arial']
+        [...availableFontFamilies, ...favoriteFonts, selectedLabel?.fontFamily ?? 'Futura']
           .map((font) => font.trim())
           .filter((font) => font.length > 0),
       ),
@@ -1339,6 +1445,20 @@ export function IosDoodlerStudio() {
       return a.localeCompare(b);
     });
   }, [availableFontFamilies, favoriteFonts, fontFilterQuery, selectedLabel?.fontFamily]);
+
+  const currentStudioState = useMemo<PersistedStudioState>(() => clonePersistedStudioState({
+    slots,
+    enabledLanguages,
+    activeLanguageCode,
+    favoriteFonts,
+  }), [activeLanguageCode, enabledLanguages, favoriteFonts, slots]);
+  const currentStudioStateSignature = useMemo(
+    () => JSON.stringify(currentStudioState),
+    [currentStudioState],
+  );
+  const canUndoChanges = projectHistory ? canUndoProjectHistory(projectHistory) : false;
+  const canRedoChanges = projectHistory ? canRedoProjectHistory(projectHistory) : false;
+  const hasUnsavedProjectChanges = projectBaselineSignature !== null && projectBaselineSignature !== currentStudioStateSignature;
 
   useEffect(() => {
     let cancelled = false;
@@ -1378,11 +1498,17 @@ export function IosDoodlerStudio() {
       try {
         const persisted = sanitizePersistedState(await loadIosDoodlerState());
         if (persisted) {
+          const snapshot = clonePersistedStudioState(persisted);
           if (!isCancelled) {
-            setSlots(persisted.slots);
+            setSlots(ensureUniqueSlotIds(persisted.slots));
             setEnabledLanguages(persisted.enabledLanguages);
             setActiveLanguageCode(persisted.activeLanguageCode);
             setFavoriteFonts(persisted.favoriteFonts);
+            setProjectHistory(createProjectHistory(snapshot, { capacity: PROJECT_HISTORY_CAPACITY }));
+            setProjectBaselineSignature(JSON.stringify(snapshot));
+            setProjectFileHandle(null);
+            setProjectFileName(null);
+            setIsProjectAutoSaveEnabled(false);
           }
           return;
         }
@@ -1395,10 +1521,16 @@ export function IosDoodlerStudio() {
         if (!legacyState) return;
 
         if (!isCancelled) {
-          setSlots(legacyState.slots);
+          const snapshot = clonePersistedStudioState(legacyState);
+          setSlots(ensureUniqueSlotIds(legacyState.slots));
           setEnabledLanguages(legacyState.enabledLanguages);
           setActiveLanguageCode(legacyState.activeLanguageCode);
           setFavoriteFonts(legacyState.favoriteFonts);
+          setProjectHistory(createProjectHistory(snapshot, { capacity: PROJECT_HISTORY_CAPACITY }));
+          setProjectBaselineSignature(JSON.stringify(snapshot));
+          setProjectFileHandle(null);
+          setProjectFileName(null);
+          setIsProjectAutoSaveEnabled(false);
         }
         await saveIosDoodlerState(legacyState);
         window.localStorage.removeItem(LEGACY_STORAGE_KEY);
@@ -1415,6 +1547,29 @@ export function IosDoodlerStudio() {
       isCancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!persistenceReady) return;
+    if (!projectHistory) {
+      setProjectHistory(createProjectHistory(currentStudioState, { capacity: PROJECT_HISTORY_CAPACITY }));
+    }
+    if (projectBaselineSignature === null) {
+      setProjectBaselineSignature(currentStudioStateSignature);
+    }
+  }, [currentStudioState, currentStudioStateSignature, persistenceReady, projectBaselineSignature, projectHistory]);
+
+  useEffect(() => {
+    if (!persistenceReady || !projectHistory) return;
+    if (isApplyingHistorySnapshotRef.current) {
+      isApplyingHistorySnapshotRef.current = false;
+      return;
+    }
+
+    setProjectHistory((previous) => {
+      if (!previous) return previous;
+      return projectHistoryPush(previous, currentStudioState);
+    });
+  }, [currentStudioState, currentStudioStateSignature, persistenceReady, projectHistory]);
 
   useEffect(() => {
     if (!persistenceReady || typeof window === 'undefined') return;
@@ -2000,6 +2155,249 @@ export function IosDoodlerStudio() {
     }
   }, [enabledLanguages, slots]);
 
+  const applyPersistedStudioSnapshot = useCallback((
+    nextStateRaw: PersistedStudioState,
+    options?: { resetHistory?: boolean; markAsSaved?: boolean; resetViewState?: boolean },
+  ) => {
+    const nextState = clonePersistedStudioState(nextStateRaw);
+    nextState.slots = ensureUniqueSlotIds(nextState.slots);
+    const nextSignature = JSON.stringify(nextState);
+
+    isApplyingHistorySnapshotRef.current = true;
+    setSlots(nextState.slots);
+    setEnabledLanguages(nextState.enabledLanguages);
+    setActiveLanguageCode(nextState.activeLanguageCode);
+    setFavoriteFonts(nextState.favoriteFonts);
+
+    if (options?.resetViewState ?? true) {
+      setEditingSlotId(null);
+      setSelectedLabelId(null);
+      setLanguageFilterQuery('');
+      setFontFilterQuery('');
+    }
+
+    if (options?.resetHistory) {
+      setProjectHistory(createProjectHistory(nextState, { capacity: PROJECT_HISTORY_CAPACITY }));
+    }
+
+    if (options?.markAsSaved) {
+      setProjectBaselineSignature(nextSignature);
+    }
+  }, []);
+
+  const saveProjectToHandle = useCallback(async (
+    handle: FileSystemFileHandle,
+    fileNameHint: string | null,
+    state: PersistedStudioState,
+  ) => {
+    const projectName = normalizeProjectFileName(fileNameHint ?? handle.name ?? DEFAULT_PROJECT_FILE_NAME)
+      .replace(new RegExp(`${PROJECT_FILE_EXTENSION.replace('.', '\\.')}$`, 'i'), '');
+    const content = serializeProjectFile(state, { projectName });
+    const writable = await handle.createWritable();
+    await writable.write(content);
+    await writable.close();
+  }, []);
+
+  const handleProjectSaveAs = useCallback(async () => {
+    const pickerWindow = window as ProjectPickerWindow;
+    if (!pickerWindow.showSaveFilePicker) {
+      const blob = new Blob([serializeProjectFile(currentStudioState)], { type: 'application/json' });
+      triggerBlobDownload(blob, normalizeProjectFileName(projectFileName ?? DEFAULT_PROJECT_FILE_NAME));
+      setProjectBaselineSignature(currentStudioStateSignature);
+      toast.success('Project exported as a file download.');
+      return;
+    }
+
+    try {
+      const handle = await pickerWindow.showSaveFilePicker({
+        id: 'ios-doodler-project-save',
+        suggestedName: normalizeProjectFileName(projectFileName ?? DEFAULT_PROJECT_FILE_NAME),
+        types: [
+          {
+            description: 'iOS Doodler Project',
+            accept: {
+              'application/json': [PROJECT_FILE_EXTENSION, '.json'],
+            },
+          },
+        ],
+      });
+      await saveProjectToHandle(handle, handle.name ?? projectFileName ?? DEFAULT_PROJECT_FILE_NAME, currentStudioState);
+      const normalizedName = normalizeProjectFileName(handle.name ?? projectFileName ?? DEFAULT_PROJECT_FILE_NAME);
+      setProjectFileHandle(handle);
+      setProjectFileName(normalizedName);
+      setProjectBaselineSignature(currentStudioStateSignature);
+      toast.success(`Project saved to ${normalizedName}.`);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        toast.message('Save cancelled.');
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'unknown file system error';
+      console.warn('Failed to save iOS Doodler project (save as):', message);
+      toast.error('Failed to save project file.');
+    }
+  }, [currentStudioState, currentStudioStateSignature, projectFileName, saveProjectToHandle]);
+
+  const handleProjectSave = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
+    if (!projectFileHandle) {
+      if (!silent) {
+        await handleProjectSaveAs();
+      }
+      return false;
+    }
+
+    try {
+      await saveProjectToHandle(projectFileHandle, projectFileName, currentStudioState);
+      setProjectBaselineSignature(currentStudioStateSignature);
+      if (!silent) {
+        toast.success(`Project saved to ${normalizeProjectFileName(projectFileName ?? projectFileHandle.name)}.`);
+      }
+      return true;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        if (!silent) {
+          toast.message('Save cancelled.');
+        }
+        return false;
+      }
+      const message = error instanceof Error ? error.message : 'unknown file system error';
+      console.warn('Failed to save iOS Doodler project:', message);
+      if (!silent) {
+        toast.error('Failed to save project file.');
+      }
+      return false;
+    }
+  }, [currentStudioState, currentStudioStateSignature, handleProjectSaveAs, projectFileHandle, projectFileName, saveProjectToHandle]);
+
+  const handleProjectOpen = useCallback(async () => {
+    if (hasUnsavedProjectChanges) {
+      const confirmed = window.confirm('You have unsaved project changes. Continue without saving?');
+      if (!confirmed) return;
+    }
+
+    const pickerWindow = window as ProjectPickerWindow;
+    if (!pickerWindow.showOpenFilePicker) {
+      toast.error('Open file picker is not supported in this browser.');
+      return;
+    }
+
+    try {
+      const handles = await pickerWindow.showOpenFilePicker({
+        id: 'ios-doodler-project-open',
+        multiple: false,
+        types: [
+          {
+            description: 'iOS Doodler Project',
+            accept: {
+              'application/json': [PROJECT_FILE_EXTENSION, '.json'],
+            },
+          },
+        ],
+      });
+
+      const handle = handles[0];
+      if (!handle) return;
+      const file = await handle.getFile();
+      const text = await file.text();
+      const parsed = parseProjectFileJson(text);
+      if (!parsed.ok) {
+        toast.error(`Invalid project file: ${parsed.error}`);
+        return;
+      }
+
+      const snapshot = clonePersistedStudioState(parsed.value.state);
+      applyPersistedStudioSnapshot(snapshot, { resetHistory: true, markAsSaved: true, resetViewState: true });
+      setProjectFileHandle(handle);
+      setProjectFileName(normalizeProjectFileName(file.name || handle.name || DEFAULT_PROJECT_FILE_NAME));
+      toast.success(`Loaded project ${file.name || 'file'}.`);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        toast.message('Open cancelled.');
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'unknown file system error';
+      console.warn('Failed to open iOS Doodler project:', message);
+      toast.error('Failed to open project file.');
+    }
+  }, [applyPersistedStudioSnapshot, hasUnsavedProjectChanges]);
+
+  const handleProjectCreateNew = useCallback(() => {
+    if (hasUnsavedProjectChanges) {
+      const confirmed = window.confirm('You have unsaved project changes. Create a new project anyway?');
+      if (!confirmed) return;
+    }
+
+    const next: PersistedStudioState = {
+      slots: createInitialSlots(STUDIO_LANGUAGES),
+      enabledLanguages: [...ALL_LANGUAGE_CODES],
+      activeLanguageCode: DEFAULT_STUDIO_LANGUAGE,
+      favoriteFonts: [],
+    };
+
+    applyPersistedStudioSnapshot(next, { resetHistory: true, markAsSaved: true, resetViewState: true });
+    setProjectFileHandle(null);
+    setProjectFileName(null);
+    setIsProjectAutoSaveEnabled(false);
+    toast.success('New project created.');
+  }, [applyPersistedStudioSnapshot, hasUnsavedProjectChanges]);
+
+  const handleProjectUndo = useCallback(() => {
+    if (!projectHistory) return;
+    const result = projectHistoryUndo(projectHistory);
+    if (!result.ok) {
+      toast.message(result.error);
+      return;
+    }
+    setProjectHistory(result.value);
+    applyPersistedStudioSnapshot(result.value.present, { resetHistory: false, markAsSaved: false, resetViewState: false });
+  }, [applyPersistedStudioSnapshot, projectHistory]);
+
+  const handleProjectRedo = useCallback(() => {
+    if (!projectHistory) return;
+    const result = projectHistoryRedo(projectHistory);
+    if (!result.ok) {
+      toast.message(result.error);
+      return;
+    }
+    setProjectHistory(result.value);
+    applyPersistedStudioSnapshot(result.value.present, { resetHistory: false, markAsSaved: false, resetViewState: false });
+  }, [applyPersistedStudioSnapshot, projectHistory]);
+
+  useEffect(() => {
+    if (!isProjectAutoSaveEnabled || !projectFileHandle || !hasUnsavedProjectChanges) return;
+
+    if (projectAutoSaveTimerRef.current !== null) {
+      window.clearTimeout(projectAutoSaveTimerRef.current);
+    }
+    projectAutoSaveTimerRef.current = window.setTimeout(() => {
+      void handleProjectSave({ silent: true });
+      projectAutoSaveTimerRef.current = null;
+    }, 550);
+
+    return () => {
+      if (projectAutoSaveTimerRef.current !== null) {
+        window.clearTimeout(projectAutoSaveTimerRef.current);
+        projectAutoSaveTimerRef.current = null;
+      }
+    };
+  }, [handleProjectSave, hasUnsavedProjectChanges, isProjectAutoSaveEnabled, projectFileHandle]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedProjectChanges) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedProjectChanges]);
+
   const handleAddSlot = useCallback(() => {
     if (emptyShotOrders.length > 0) {
       const label = emptyShotOrders.length > 1 ? "shots" : "shot";
@@ -2009,6 +2407,8 @@ export function IosDoodlerStudio() {
 
     setSlots((previous) => {
       const nextSlot = createEmptySlot(previous.length + 1);
+      const usedIds = new Set(previous.map((slot) => slot.id));
+      nextSlot.id = buildUniqueSlotId(usedIds, previous.length + 1);
       if (previous.length > 0) {
         const referenceText = previous[0]?.textByLanguage ?? {};
         const cloned: Record<string, Record<string, string>> = {};
@@ -2027,7 +2427,7 @@ export function IosDoodlerStudio() {
       return;
     }
 
-    setSlots((previous) => removeSlotAndNormalizeOrder(previous, slotId));
+    setSlots((previous) => ensureUniqueSlotIds(removeSlotAndNormalizeOrder(previous, slotId)));
     if (editingSlotId === slotId) {
       setEditingSlotId(null);
       setSelectedLabelId(null);
@@ -2509,6 +2909,91 @@ export function IosDoodlerStudio() {
               <Plus className="h-4 w-4" />
               Add Shot
             </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <FolderPlus className="h-4 w-4" />
+                  Project
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 space-y-2 p-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={handleProjectCreateNew}
+                >
+                  <FolderPlus className="h-4 w-4" />
+                  New Project
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={handleProjectOpen}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  Load Project
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => { void handleProjectSave(); }}
+                >
+                  <Save className="h-4 w-4" />
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => { void handleProjectSaveAs(); }}
+                >
+                  <SaveAll className="h-4 w-4" />
+                  Save As
+                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={handleProjectUndo}
+                    disabled={!canUndoChanges}
+                  >
+                    <Undo2 className="h-4 w-4" />
+                    Undo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={handleProjectRedo}
+                    disabled={!canRedoChanges}
+                  >
+                    <Redo2 className="h-4 w-4" />
+                    Redo
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between rounded-md border border-slate-200 px-2 py-1.5">
+                  <span className="text-sm text-slate-700">Auto-save</span>
+                  <Checkbox
+                    checked={isProjectAutoSaveEnabled}
+                    disabled={!projectFileHandle}
+                    onCheckedChange={(checked) => setIsProjectAutoSaveEnabled(checked === true)}
+                    aria-label="Toggle project auto-save"
+                  />
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-600">
+                  <p className="truncate">
+                    File: {projectFileName ?? 'Not selected'}
+                  </p>
+                  <p className={cn('mt-1', hasUnsavedProjectChanges ? 'text-amber-700' : 'text-emerald-700')}>
+                    {hasUnsavedProjectChanges ? 'Unsaved changes' : 'All changes saved'}
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="grid grid-cols-[260px_minmax(0,1fr)] items-start gap-4">

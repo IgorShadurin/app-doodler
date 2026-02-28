@@ -66,10 +66,10 @@ test("addLabelFromKey allows multiple instances of same key and supports centere
   assert.equal(secondCreated.key, "headline");
   assert.notEqual(firstCreated.id, secondCreated.id);
 
-  assert.ok(Math.abs((firstCreated.x ?? 0) - 0.11) < 1e-6);
+  assert.ok(Math.abs((firstCreated.x ?? 0) - 0.04439252336448594) < 1e-6);
   assert.equal(firstCreated.y, 0.3);
-  assert.ok(Math.abs((secondCreated.x ?? 0) - 0.22) < 1e-6);
-  assert.equal(secondCreated.y, 0.76);
+  assert.ok(Math.abs((secondCreated.x ?? 0) - 0.08878504672897195) < 1e-6);
+  assert.ok(Math.abs((secondCreated.y ?? 0) - 0.7084233261339093) < 1e-6);
 });
 
 test("removeLabel removes only selected label instance", () => {
@@ -116,7 +116,7 @@ test("addLabelFromKey does not inherit edited style from previous label of the s
   const second = withTwo.labels[baseLabelCount + 1];
   assert.ok(second);
 
-  assert.equal(second?.width, 0.78);
+  assert.equal(second?.width, 0.9112149532710281);
   assert.notEqual(second?.fontSize, 0.02);
   assert.equal(second?.rotation, 0);
 });

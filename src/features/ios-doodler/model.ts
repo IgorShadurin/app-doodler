@@ -48,9 +48,11 @@ export type TemplateSlot = {
 
 const DUMMY_TEMPLATE_WIDTH = DEFAULT_SCREENSHOT_WIDTH;
 const DUMMY_TEMPLATE_HEIGHT = DEFAULT_SCREENSHOT_HEIGHT;
-const DEFAULT_LABEL_WIDTH = 0.78;
-const DEFAULT_LABEL_Y = 0.16;
-const DEFAULT_FONT_SIZE_PX = 100;
+const DEFAULT_LABEL_X = 50 / DUMMY_TEMPLATE_WIDTH;
+const DEFAULT_LABEL_Y = 40 / DUMMY_TEMPLATE_HEIGHT;
+const DEFAULT_LABEL_WIDTH = 1170 / DUMMY_TEMPLATE_WIDTH;
+const DEFAULT_LABEL_HEIGHT = 810 / DUMMY_TEMPLATE_HEIGHT;
+const DEFAULT_FONT_SIZE_PX = 141;
 const DEFAULT_FONT_SIZE = DEFAULT_FONT_SIZE_PX / DUMMY_TEMPLATE_WIDTH;
 
 function clamp(value: number, min: number, max: number): number {
@@ -86,6 +88,22 @@ export function createEmptySlot(order: number): TemplateSlot {
   };
 }
 
+function createInitialLabel(
+  id: string,
+  key: string,
+  x: number,
+  y: number,
+): TemplateLabel {
+  const style = getInitialLabelStyle(key);
+  return {
+    id,
+    key,
+    x: clampLabelX(x, style.width),
+    y: clampLabelY(y, style.height),
+    ...style,
+  };
+}
+
 function getInitialLabelStyle(labelKey: string): Pick<
   TemplateLabel,
   | 'width'
@@ -102,13 +120,13 @@ function getInitialLabelStyle(labelKey: string): Pick<
 > {
   if (labelKey === 'subtitle') {
     return {
-      width: 0.78,
-      height: 0.2,
+      width: DEFAULT_LABEL_WIDTH,
+      height: DEFAULT_LABEL_HEIGHT,
       fontSize: DEFAULT_FONT_SIZE,
-      fontFamily: 'Arial',
+      fontFamily: 'Futura',
       fontWeight: 500,
       rotation: 0,
-      color: '#34455f',
+      color: '#ffffff',
       maxLines: 3,
       align: 'center',
       verticalAlign: 'center',
@@ -118,13 +136,13 @@ function getInitialLabelStyle(labelKey: string): Pick<
 
   if (labelKey === 'headline') {
     return {
-      width: 0.78,
-      height: 0.24,
+      width: DEFAULT_LABEL_WIDTH,
+      height: DEFAULT_LABEL_HEIGHT,
       fontSize: DEFAULT_FONT_SIZE,
-      fontFamily: 'Arial',
+      fontFamily: 'Futura',
       fontWeight: 700,
       rotation: 0,
-      color: '#0f1b3d',
+      color: '#ffffff',
       maxLines: 2,
       align: 'center',
       verticalAlign: 'center',
@@ -134,12 +152,12 @@ function getInitialLabelStyle(labelKey: string): Pick<
 
   return {
     width: DEFAULT_LABEL_WIDTH,
-    height: 0.18,
+    height: DEFAULT_LABEL_HEIGHT,
     fontSize: DEFAULT_FONT_SIZE,
-    fontFamily: 'Arial',
+    fontFamily: 'Futura',
     fontWeight: 600,
     rotation: 0,
-    color: '#233045',
+    color: '#ffffff',
     maxLines: 2,
     align: 'center',
     verticalAlign: 'center',
@@ -190,15 +208,10 @@ export function createInitialSlots(languages: StudioLanguage[]): TemplateSlot[] 
   const defaultLabelKeys = ['headline', 'subtitle'];
   first.baseAsset = createDummyTemplateAsset();
   first.textByLanguage = createDummyTextByLanguage(defaultLabelKeys, languages);
-  for (const labelKey of defaultLabelKeys) {
-    const nextFirst = addLabelFromKey(first, labelKey, {
-      x: labelKey === 'headline' ? 0.11 : 0.11,
-      y: labelKey === 'headline' ? 0.16 : 0.58,
-      centered: false,
-    });
-    first.labels = nextFirst.labels;
-    first.textByLanguage = nextFirst.textByLanguage;
-  }
+  first.labels = [
+    createInitialLabel('label-initial-headline', 'headline', DEFAULT_LABEL_X, DEFAULT_LABEL_Y),
+    createInitialLabel('label-initial-subtitle', 'subtitle', DEFAULT_LABEL_X, DEFAULT_LABEL_Y),
+  ];
 
   const second = createEmptySlot(2);
   second.textByLanguage = createDummyTextByLanguage([], languages);
@@ -313,7 +326,7 @@ export function updateLabel(
       ...label,
       ...changes,
     };
-    merged.fontFamily = merged.fontFamily?.trim() || 'Arial';
+    merged.fontFamily = merged.fontFamily?.trim() || 'Futura';
     merged.width = Math.max(merged.width, 0.01);
     merged.height = Math.max(merged.height, 0.01);
     merged.fontSize = Math.max(merged.fontSize, 0.005);
@@ -364,15 +377,15 @@ export function addLabel(slot: TemplateSlot, languages: StudioLanguage[]): Templ
   const newLabel: TemplateLabel = {
     id: createId('label'),
     key: `label_${nextIndex}`,
-    x: 0.1,
-    y: clamp(0.65 + (nextIndex % 2) * 0.08, 0, 0.9),
-    width: 0.76,
-    height: 0.16,
+    x: DEFAULT_LABEL_X,
+    y: DEFAULT_LABEL_Y,
+    width: DEFAULT_LABEL_WIDTH,
+    height: DEFAULT_LABEL_HEIGHT,
     fontSize: DEFAULT_FONT_SIZE,
-    fontFamily: 'Arial',
+    fontFamily: 'Futura',
     fontWeight: 600,
     rotation: 0,
-    color: '#233045',
+    color: '#ffffff',
     maxLines: 2,
     align: 'center',
     verticalAlign: 'center',
@@ -460,9 +473,8 @@ export function addLabelFromKey(
   const initialStyle = getInitialLabelStyle(key);
   const width = initialStyle.width;
 
-  const offsetIndex = slot.labels.length;
-  const fallbackX = 0.11 + (offsetIndex % 3) * 0.03;
-  const fallbackY = DEFAULT_LABEL_Y + (offsetIndex % 5) * 0.06;
+  const fallbackX = DEFAULT_LABEL_X;
+  const fallbackY = DEFAULT_LABEL_Y;
   const requestedX = options?.x ?? fallbackX;
   const requestedY = options?.y ?? fallbackY;
   const nextX = options?.centered
