@@ -807,43 +807,56 @@ function wrapCanvasLines(
   context: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
-  maxLines: number,
 ): string[] {
   if (!text.trim()) return [''];
   const lines: string[] = [];
-  const paragraphs = text.split(/\n/g);
+  const paragraphs = text.replace(/\r\n/g, '\n').split('\n');
 
   for (const paragraph of paragraphs) {
-    const sourceTokens = paragraph.trim().includes(' ')
-      ? paragraph.trim().split(/\s+/)
-      : Array.from(paragraph.trim());
+    const normalizedParagraph = paragraph.trim();
+    const usesWordWrapping = normalizedParagraph.includes(' ');
+    const sourceTokens = usesWordWrapping
+      ? normalizedParagraph.split(/\s+/)
+      : Array.from(normalizedParagraph);
 
-    if (sourceTokens.length === 0) {
+    if (normalizedParagraph.length === 0 || sourceTokens.length === 0) {
       lines.push('');
-      if (lines.length >= maxLines) break;
       continue;
     }
 
     let current = sourceTokens[0] ?? '';
     for (let index = 1; index < sourceTokens.length; index += 1) {
       const token = sourceTokens[index];
-      const candidate = paragraph.trim().includes(' ') ? `${current} ${token}` : `${current}${token}`;
+      const candidate = usesWordWrapping ? `${current} ${token}` : `${current}${token}`;
       if (context.measureText(candidate).width <= maxWidth) {
         current = candidate;
         continue;
       }
+
       lines.push(current);
-      if (lines.length >= maxLines) break;
-      current = token;
+
+      if (!usesWordWrapping || context.measureText(token).width <= maxWidth) {
+        current = token;
+        continue;
+      }
+
+      let chunk = '';
+      for (const char of Array.from(token)) {
+        const chunkCandidate = `${chunk}${char}`;
+        if (chunk && context.measureText(chunkCandidate).width > maxWidth) {
+          lines.push(chunk);
+          chunk = char;
+        } else {
+          chunk = chunkCandidate;
+        }
+      }
+      current = chunk;
     }
 
-    if (lines.length >= maxLines) break;
     lines.push(current);
-    if (lines.length >= maxLines) break;
   }
 
-  if (lines.length <= maxLines) return lines;
-  return lines.slice(0, maxLines);
+  return lines.length > 0 ? lines : [''];
 }
 
 async function renderSlotBlob(slot: TemplateSlot, languageCode: string): Promise<Blob | null> {
@@ -873,8 +886,8 @@ async function renderSlotBlob(slot: TemplateSlot, languageCode: string): Promise
     context.textAlign = label.align;
     context.textBaseline = 'top';
 
-    const lineHeight = box.fontSize * 1.15;
-    const lines = wrapCanvasLines(context, text, box.width, label.maxLines).slice(0, label.maxLines);
+    const lineHeight = box.fontSize * 1.14;
+    const lines = wrapCanvasLines(context, text, box.width);
     const anchorX = box.left + box.width / 2;
     const anchorY = box.top + box.height / 2;
     const textOffsetX = label.align === 'left' ? -box.width / 2 : label.align === 'center' ? 0 : box.width / 2;
