@@ -553,7 +553,7 @@ export function DoodlerStudio() {
       <div className="mx-auto w-full max-w-[1520px] px-4 py-6 md:px-8 md:py-10">
         <header className="mb-6 flex flex-col gap-3 rounded-2xl border border-sky-200/80 bg-white/80 shadow-sm p-5 backdrop-blur md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-sky-700">Open iOS Doodler</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-sky-700">App Doodler</p>
             <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">Localized App Store Screenshot Studio</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
               Upload one or many templates, place labels once per template, preview any language, and generate grouped outputs for all selected templates.

@@ -1,4 +1,4 @@
-import { DEFAULT_STUDIO_LANGUAGE, type StudioLanguage } from '@/features/ios-doodler/languages';
+import { DEFAULT_STUDIO_LANGUAGE, type StudioLanguage } from '@/features/app-doodler/languages';
 import {
   DEFAULT_SCREENSHOT_HEIGHT,
   DEFAULT_SCREENSHOT_WIDTH,

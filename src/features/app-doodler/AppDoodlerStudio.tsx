@@ -59,24 +59,24 @@ import {
   type LabelVerticalAlign,
   type TemplateAsset,
   type TemplateSlot,
-} from '@/features/ios-doodler/model';
-import { clearIosDoodlerState, loadIosDoodlerState, saveIosDoodlerState, type IosDoodlerPersistedState } from '@/features/ios-doodler/browser-db';
-import { DEFAULT_STUDIO_LANGUAGE, STUDIO_LANGUAGES } from '@/features/ios-doodler/languages';
+} from '@/features/app-doodler/model';
+import { clearAppDoodlerState, loadAppDoodlerState, saveAppDoodlerState, type AppDoodlerPersistedState } from '@/features/app-doodler/browser-db';
+import { DEFAULT_STUDIO_LANGUAGE, STUDIO_LANGUAGES } from '@/features/app-doodler/languages';
 import {
   computeCropRect,
   hasMatchingAspectRatio,
-} from '@/features/ios-doodler/image-fit';
+} from '@/features/app-doodler/image-fit';
 import {
   parseTranslationsImportJson,
   type ParsedTranslationsImport,
-} from '@/features/ios-doodler/translations-import';
+} from '@/features/app-doodler/translations-import';
 import {
   clonePersistedStudioState,
   parseProjectFileJson,
   PROJECT_FILE_EXTENSION,
   serializeProjectFile,
   type PersistedStudioState,
-} from '@/features/ios-doodler/project-file';
+} from '@/features/app-doodler/project-file';
 import {
   canRedoProjectHistory,
   canUndoProjectHistory,
@@ -85,7 +85,7 @@ import {
   projectHistoryRedo,
   projectHistoryUndo,
   type ProjectHistoryState,
-} from '@/features/ios-doodler/project-history';
+} from '@/features/app-doodler/project-history';
 import {
   DEFAULT_SCREENSHOT_ASPECT_RATIO_CSS,
   DEFAULT_SCREENSHOT_HEIGHT,
@@ -260,22 +260,22 @@ type PendingImageUpload = {
   cropRect: CropRectPx;
 };
 
-const LEGACY_STORAGE_KEY = 'ios-doodler-studio-v3';
+const LEGACY_STORAGE_KEY = 'app-doodler-studio-v3';
 const ALL_LANGUAGE_CODES = STUDIO_LANGUAGES.map((language) => language.code);
 const LANGUAGE_ORDER_INDEX = new Map(ALL_LANGUAGE_CODES.map((code, index) => [code, index]));
-const SOURCE_CODE_URL = 'https://github.com/IgorShadurin/ios-doodler';
-const LABEL_KEY_DRAG_MIME = 'text/x-ios-doodler-label-key';
+const SOURCE_CODE_URL = 'https://github.com/IgorShadurin/app-doodler';
+const LABEL_KEY_DRAG_MIME = 'text/x-app-doodler-label-key';
 const MIN_FONT_SIZE_PX = 6;
 const PERSISTENCE_DEBOUNCE_MS = 220;
 const COLOR_COMMIT_DEBOUNCE_MS = 120;
-const PERF_DEBUG_WINDOW_FLAG = '__IOS_DOODLER_DEBUG';
+const PERF_DEBUG_WINDOW_FLAG = '__APP_DOODLER_DEBUG';
 const SELECTION_BORDER_COLOR = 'rgb(2 132 199)';
 const SELECTION_BORDER_WIDTH = 2;
 const SELECTION_FRAME_CLASS = 'cursor-move border-solid bg-sky-500/15 shadow-sm';
 const SELECTION_BADGE_CLASS = 'pointer-events-none absolute left-1 top-1 rounded-sm bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-sky-800';
 const SELECTION_HANDLE_BASE_CLASS = 'h-4 w-4 rounded-full border border-sky-700 bg-white';
 const PROJECT_HISTORY_CAPACITY = 160;
-const DEFAULT_PROJECT_FILE_NAME = `ios-doodler-project${PROJECT_FILE_EXTENSION}`;
+const DEFAULT_PROJECT_FILE_NAME = `app-doodler-project${PROJECT_FILE_EXTENSION}`;
 const DEFAULT_FONT_FAMILIES = [
   'League Spartan',
   'Arial',
@@ -1005,7 +1005,7 @@ function LabelOverlay({
     if (!win[PERF_DEBUG_WINDOW_FLAG]) return;
 
     // Debug trace for tricky cases where main slot preview shows image but labels are missing.
-    console.debug('[ios-doodler][overlay]', {
+    console.debug('[app-doodler][overlay]', {
       slotId: slot.id,
       languageCode,
       showGuides,
@@ -1375,7 +1375,7 @@ function normalizeLoadedSlots(value: unknown): TemplateSlot[] | null {
   return parsed.length > 0 ? ensureUniqueSlotIds(parsed) : null;
 }
 
-function sanitizePersistedState(value: unknown): IosDoodlerPersistedState | null {
+function sanitizePersistedState(value: unknown): AppDoodlerPersistedState | null {
   if (!value || typeof value !== 'object') return null;
   const parsed = value as {
     slots?: unknown;
@@ -1416,7 +1416,7 @@ function sanitizePersistedState(value: unknown): IosDoodlerPersistedState | null
   };
 }
 
-export function IosDoodlerStudio() {
+export function AppDoodlerStudio() {
   const [slots, setSlots] = useState<TemplateSlot[]>(() => createInitialSlots(STUDIO_LANGUAGES));
   const [enabledLanguages, setEnabledLanguages] = useState<string[]>(() => [...ALL_LANGUAGE_CODES]);
   const [activeLanguageCode, setActiveLanguageCode] = useState<string>(DEFAULT_STUDIO_LANGUAGE);
@@ -1481,7 +1481,7 @@ export function IosDoodlerStudio() {
       const counters = perfDebugCountersRef.current;
       const hasActivity = Object.values(counters).some((value) => value > 0);
       if (!hasActivity) return;
-      console.debug('[ios-doodler][perf]', { ...counters });
+      console.debug('[app-doodler][perf]', { ...counters });
       counters.dragMoves = 0;
       counters.dragApplies = 0;
       counters.draftSyncWrites = 0;
@@ -1635,7 +1635,7 @@ export function IosDoodlerStudio() {
 
     const bootstrap = async () => {
       try {
-        const persisted = sanitizePersistedState(await loadIosDoodlerState());
+        const persisted = sanitizePersistedState(await loadAppDoodlerState());
         if (persisted) {
           const snapshot = clonePersistedStudioState(persisted);
           if (!isCancelled) {
@@ -1671,11 +1671,11 @@ export function IosDoodlerStudio() {
           setProjectFileName(null);
           setIsProjectAutoSaveEnabled(false);
         }
-        await saveIosDoodlerState(legacyState);
+        await saveAppDoodlerState(legacyState);
         window.localStorage.removeItem(LEGACY_STORAGE_KEY);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown database error';
-        console.warn('Failed to load iOS Doodler browser DB state:', message);
+        console.warn('Failed to load App Doodler browser DB state:', message);
       } finally {
         if (!isCancelled) setPersistenceReady(true);
       }
@@ -1712,7 +1712,7 @@ export function IosDoodlerStudio() {
 
   useEffect(() => {
     if (!persistenceReady || typeof window === 'undefined') return;
-    const payload: IosDoodlerPersistedState = {
+    const payload: AppDoodlerPersistedState = {
       slots,
       enabledLanguages,
       activeLanguageCode,
@@ -1722,12 +1722,12 @@ export function IosDoodlerStudio() {
     const timeoutId = window.setTimeout(() => {
       const persist = async () => {
         try {
-          await saveIosDoodlerState(payload);
+          await saveAppDoodlerState(payload);
           perfDebugCountersRef.current.persistWrites += 1;
           window.localStorage.removeItem(LEGACY_STORAGE_KEY);
         } catch (error) {
           const message = error instanceof Error ? error.message : 'unknown database error';
-          console.warn('Failed to persist iOS Doodler state to browser DB:', message);
+          console.warn('Failed to persist App Doodler state to browser DB:', message);
           if (!hasShownPersistenceWarningRef.current) {
             toast.error('Failed to save browser database state.');
             hasShownPersistenceWarningRef.current = true;
@@ -2146,7 +2146,7 @@ export function IosDoodlerStudio() {
     }
 
     try {
-      await saveIosDoodlerState({
+      await saveAppDoodlerState({
         slots: nextSlots,
         enabledLanguages: nextEnabledLanguages,
         activeLanguageCode: nextActiveLanguageCode,
@@ -2258,7 +2258,7 @@ export function IosDoodlerStudio() {
       const rootHandle = await pickerWindow.showDirectoryPicker({
         mode: 'readwrite',
         startIn: 'downloads',
-        id: 'ios-doodler-screenshots-export',
+        id: 'app-doodler-screenshots-export',
       });
 
       let writtenCount = 0;
@@ -2364,11 +2364,11 @@ export function IosDoodlerStudio() {
 
     try {
       const handle = await pickerWindow.showSaveFilePicker({
-        id: 'ios-doodler-project-save',
+        id: 'app-doodler-project-save',
         suggestedName: normalizeProjectFileName(projectFileName ?? DEFAULT_PROJECT_FILE_NAME),
         types: [
           {
-            description: 'iOS Doodler Project',
+            description: 'App Doodler Project',
             accept: {
               'application/json': [PROJECT_FILE_EXTENSION, '.json'],
             },
@@ -2387,7 +2387,7 @@ export function IosDoodlerStudio() {
         return;
       }
       const message = error instanceof Error ? error.message : 'unknown file system error';
-      console.warn('Failed to save iOS Doodler project (save as):', message);
+      console.warn('Failed to save App Doodler project (save as):', message);
       toast.error('Failed to save project file.');
     }
   }, [currentStudioState, currentStudioStateSignature, projectFileName, saveProjectToHandle]);
@@ -2416,7 +2416,7 @@ export function IosDoodlerStudio() {
         return false;
       }
       const message = error instanceof Error ? error.message : 'unknown file system error';
-      console.warn('Failed to save iOS Doodler project:', message);
+      console.warn('Failed to save App Doodler project:', message);
       if (!silent) {
         toast.error('Failed to save project file.');
       }
@@ -2438,11 +2438,11 @@ export function IosDoodlerStudio() {
 
     try {
       const handles = await pickerWindow.showOpenFilePicker({
-        id: 'ios-doodler-project-open',
+        id: 'app-doodler-project-open',
         multiple: false,
         types: [
           {
-            description: 'iOS Doodler Project',
+            description: 'App Doodler Project',
             accept: {
               'application/json': [PROJECT_FILE_EXTENSION, '.json'],
             },
@@ -2471,7 +2471,7 @@ export function IosDoodlerStudio() {
         return;
       }
       const message = error instanceof Error ? error.message : 'unknown file system error';
-      console.warn('Failed to open iOS Doodler project:', message);
+      console.warn('Failed to open App Doodler project:', message);
       toast.error('Failed to open project file.');
     }
   }, [applyPersistedStudioSnapshot, hasUnsavedProjectChanges]);
@@ -2611,7 +2611,7 @@ export function IosDoodlerStudio() {
     if (!confirmed) return;
 
     try {
-      await clearIosDoodlerState();
+      await clearAppDoodlerState();
       window.localStorage.removeItem(LEGACY_STORAGE_KEY);
       setSlots(createInitialSlots(STUDIO_LANGUAGES));
       setEnabledLanguages([...ALL_LANGUAGE_CODES]);
@@ -2624,7 +2624,7 @@ export function IosDoodlerStudio() {
       toast.success('Shots reset to default.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown database error';
-      console.warn('Failed to reset iOS Doodler browser DB state:', message);
+      console.warn('Failed to reset App Doodler browser DB state:', message);
       toast.error('Failed to reset shots.');
     }
   }, []);
@@ -3046,7 +3046,7 @@ export function IosDoodlerStudio() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-slate-600">
-            <p>iOS Doodler supports iPad and desktop only.</p>
+            <p>App Doodler supports iPad and desktop only.</p>
             <p>Use a larger display to edit labels and generate localized screenshots.</p>
             <p className="text-sm">Minimum recommended width: 768px.</p>
           </CardContent>
@@ -3057,7 +3057,7 @@ export function IosDoodlerStudio() {
         <header className="rounded-2xl border border-sky-200/80 bg-white/85 p-5 shadow-sm">
           <h1 className="flex items-center gap-3 text-4xl font-semibold tracking-tight text-slate-900">
             <Smartphone className="h-8 w-8 text-sky-700" />
-            iOS Doodler
+            App Doodler
           </h1>
         </header>
 

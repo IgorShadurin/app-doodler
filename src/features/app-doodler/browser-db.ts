@@ -1,29 +1,29 @@
-import type { TemplateSlot } from '@/features/ios-doodler/model';
+import type { TemplateSlot } from '@/features/app-doodler/model';
 
-export type IosDoodlerPersistedState = {
+export type AppDoodlerPersistedState = {
   slots: TemplateSlot[];
   enabledLanguages: string[];
   activeLanguageCode: string;
   favoriteFonts: string[];
 };
 
-type IosDoodlerStateRecord = {
+type AppDoodlerStateRecord = {
   id: 'state';
-  payload: IosDoodlerPersistedState;
+  payload: AppDoodlerPersistedState;
   updatedAt: number;
 };
 
-const DB_NAME = 'ios-doodler-browser-db';
+const DB_NAME = 'app-doodler-browser-db';
 const DB_VERSION = 1;
 const STORE_NAME = 'studio_state';
-const STATE_KEY: IosDoodlerStateRecord['id'] = 'state';
+const STATE_KEY: AppDoodlerStateRecord['id'] = 'state';
 
 function getIndexedDbFactory(): IDBFactory | null {
   if (typeof window === 'undefined') return null;
   return window.indexedDB ?? null;
 }
 
-function openIosDoodlerDb(): Promise<IDBDatabase | null> {
+function openAppDoodlerDb(): Promise<IDBDatabase | null> {
   return new Promise((resolve, reject) => {
     const factory = getIndexedDbFactory();
     if (!factory) {
@@ -39,12 +39,12 @@ function openIosDoodlerDb(): Promise<IDBDatabase | null> {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('Failed to open iOS Doodler browser DB.'));
+    request.onerror = () => reject(request.error ?? new Error('Failed to open App Doodler browser DB.'));
   });
 }
 
-export async function loadIosDoodlerState(): Promise<IosDoodlerPersistedState | null> {
-  const database = await openIosDoodlerDb();
+export async function loadAppDoodlerState(): Promise<AppDoodlerPersistedState | null> {
+  const database = await openAppDoodlerDb();
   if (!database) return null;
 
   return new Promise((resolve, reject) => {
@@ -53,19 +53,19 @@ export async function loadIosDoodlerState(): Promise<IosDoodlerPersistedState | 
     const request = store.get(STATE_KEY);
 
     request.onsuccess = () => {
-      const record = request.result as IosDoodlerStateRecord | undefined;
+      const record = request.result as AppDoodlerStateRecord | undefined;
       resolve(record?.payload ?? null);
     };
-    request.onerror = () => reject(request.error ?? new Error('Failed to load iOS Doodler state.'));
-    transaction.onabort = () => reject(transaction.error ?? new Error('Failed to read iOS Doodler state.'));
+    request.onerror = () => reject(request.error ?? new Error('Failed to load App Doodler state.'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('Failed to read App Doodler state.'));
     transaction.oncomplete = () => {
       database.close();
     };
   });
 }
 
-export async function saveIosDoodlerState(payload: IosDoodlerPersistedState): Promise<void> {
-  const database = await openIosDoodlerDb();
+export async function saveAppDoodlerState(payload: AppDoodlerPersistedState): Promise<void> {
+  const database = await openAppDoodlerDb();
   if (!database) return;
 
   return new Promise((resolve, reject) => {
@@ -75,19 +75,19 @@ export async function saveIosDoodlerState(payload: IosDoodlerPersistedState): Pr
       id: STATE_KEY,
       payload,
       updatedAt: Date.now(),
-    } as IosDoodlerStateRecord);
+    } as AppDoodlerStateRecord);
 
     transaction.oncomplete = () => {
       database.close();
       resolve();
     };
-    transaction.onabort = () => reject(transaction.error ?? new Error('Failed to save iOS Doodler state.'));
-    transaction.onerror = () => reject(transaction.error ?? new Error('Failed to save iOS Doodler state.'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('Failed to save App Doodler state.'));
+    transaction.onerror = () => reject(transaction.error ?? new Error('Failed to save App Doodler state.'));
   });
 }
 
-export async function clearIosDoodlerState(): Promise<void> {
-  const database = await openIosDoodlerDb();
+export async function clearAppDoodlerState(): Promise<void> {
+  const database = await openAppDoodlerDb();
   if (!database) return;
 
   return new Promise((resolve, reject) => {
@@ -99,7 +99,7 @@ export async function clearIosDoodlerState(): Promise<void> {
       database.close();
       resolve();
     };
-    transaction.onabort = () => reject(transaction.error ?? new Error('Failed to clear iOS Doodler state.'));
-    transaction.onerror = () => reject(transaction.error ?? new Error('Failed to clear iOS Doodler state.'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('Failed to clear App Doodler state.'));
+    transaction.onerror = () => reject(transaction.error ?? new Error('Failed to clear App Doodler state.'));
   });
 }

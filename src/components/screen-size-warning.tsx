@@ -13,7 +13,7 @@ export function ScreenSizeWarning() {
               Bigger Screen Required
             </CardTitle>
             <CardDescription className="text-slate-600">
-              Open iOS Doodler supports iPad and desktop only.
+              App Doodler supports iPad and desktop only.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-slate-700">

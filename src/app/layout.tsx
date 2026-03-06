@@ -21,7 +21,7 @@ const leagueSpartan = League_Spartan({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-const SITE_TITLE = "iOS Doodler | Localized App Store Screenshot Generator";
+const SITE_TITLE = "App Doodler | Localized App Store Screenshot Generator";
 const SITE_DESCRIPTION =
   "Create localized iOS App Store screenshots in minutes: upload templates, place labels once, preview every language, and export PNG shot packs grouped by locale.";
 
@@ -43,16 +43,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: SITE_TITLE,
-    template: "%s | iOS Doodler",
+    template: "%s | App Doodler",
   },
   description: SITE_DESCRIPTION,
-  applicationName: "iOS Doodler",
+  applicationName: "App Doodler",
   category: "productivity",
-  creator: "iOS Doodler",
-  publisher: "iOS Doodler",
+  creator: "App Doodler",
+  publisher: "App Doodler",
   referrer: "origin-when-cross-origin",
   keywords: [
-    "iOS Doodler",
+    "App Doodler",
     "iOS screenshot generator",
     "App Store screenshots",
     "App Store screenshot generator",
@@ -80,7 +80,7 @@ export const metadata: Metadata = {
     type: "website",
     url: "/",
     locale: "en_US",
-    siteName: "iOS Doodler",
+    siteName: "App Doodler",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     images: [
@@ -88,7 +88,7 @@ export const metadata: Metadata = {
         url: "/opengraph.png",
         width: 1200,
         height: 630,
-        alt: "iOS Doodler - Localized App Store screenshot generation",
+        alt: "App Doodler - Localized App Store screenshot generation",
       },
     ],
   },

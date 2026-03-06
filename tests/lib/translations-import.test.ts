@@ -5,11 +5,11 @@ assertTestDatabaseGuard();
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createEmptySlot } from "@/features/ios-doodler/model";
+import { createEmptySlot } from "@/features/app-doodler/model";
 import {
   applyTranslationsImport,
   parseTranslationsImportJson,
-} from "@/features/ios-doodler/translations-import";
+} from "@/features/app-doodler/translations-import";
 
 test("parseTranslationsImportJson parses direct language map", () => {
   const input = JSON.stringify({

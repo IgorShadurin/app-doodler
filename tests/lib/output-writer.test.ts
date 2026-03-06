@@ -12,7 +12,7 @@ test("buildLanguageGroupedOutputPath follows screenshots layout", () => {
 });
 
 test("writeArtifactsGroupedByLanguage writes image buffers to grouped folders", async () => {
-  const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "open-ios-doodler-writer-"));
+  const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "app-doodler-writer-"));
 
   try {
     const result = await writeArtifactsGroupedByLanguage(baseDir, [

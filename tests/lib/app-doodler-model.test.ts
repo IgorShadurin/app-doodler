@@ -5,7 +5,7 @@ assertTestDatabaseGuard();
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { STUDIO_LANGUAGES } from "@/features/ios-doodler/languages";
+import { STUDIO_LANGUAGES } from "@/features/app-doodler/languages";
 import {
   addLabelFromKey,
   applyLabelTextCase,
@@ -14,7 +14,7 @@ import {
   removeLabel,
   setLabelPosition,
   updateLabel,
-} from "@/features/ios-doodler/model";
+} from "@/features/app-doodler/model";
 
 test("createInitialSlots starts with initial demo labels on first shot", () => {
   const slots = createInitialSlots(STUDIO_LANGUAGES);

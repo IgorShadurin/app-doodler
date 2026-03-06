@@ -1,11 +1,11 @@
-import type { TemplateAsset, TemplateLabel, TemplateSlot } from '@/features/ios-doodler/model';
-import type { IosDoodlerPersistedState } from '@/features/ios-doodler/browser-db';
+import type { TemplateAsset, TemplateLabel, TemplateSlot } from '@/features/app-doodler/model';
+import type { AppDoodlerPersistedState } from '@/features/app-doodler/browser-db';
 
-export const PROJECT_FILE_FORMAT = 'ios-doodler-project';
+export const PROJECT_FILE_FORMAT = 'app-doodler-project';
 export const PROJECT_FILE_VERSION = 1;
 export const PROJECT_FILE_EXTENSION = '.doodler';
 
-export type PersistedStudioState = IosDoodlerPersistedState;
+export type PersistedStudioState = AppDoodlerPersistedState;
 
 export type DoodlerProjectFile = {
   format: typeof PROJECT_FILE_FORMAT;

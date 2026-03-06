@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export const metadata: Metadata = {
   title: "JSON Import Documentation",
   description:
-    "JSON schema and examples for importing localized text into iOS Doodler screenshot shots.",
+    "JSON schema and examples for importing localized text into App Doodler screenshot shots.",
   alternates: {
     canonical: "/docs/json-import",
   },

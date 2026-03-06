@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
-import { IosDoodlerStudio } from "@/features/ios-doodler/IosDoodlerStudio";
+import { AppDoodlerStudio } from "@/features/app-doodler/AppDoodlerStudio";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-const GITHUB_REPO_URL = "https://github.com/IgorShadurin/ios-doodler";
+const GITHUB_REPO_URL = "https://github.com/IgorShadurin/app-doodler";
 const TITLE = "Localized App Store Screenshot Generator for iOS Apps";
 const DESCRIPTION =
   "Create localized iOS App Store screenshots in minutes: upload templates, place labels once, preview every language, and export PNG shot packs grouped by locale.";
 const KEYWORDS = [
-  "iOS Doodler",
+  "App Doodler",
   "app store screenshot generator",
   "localized screenshots",
   "iOS screenshot templates",
@@ -37,13 +37,13 @@ export const metadata: Metadata = {
     locale: "en_US",
     title: TITLE,
     description: DESCRIPTION,
-    siteName: "iOS Doodler",
+    siteName: "App Doodler",
     images: [
       {
         url: "/opengraph.png",
         width: 1200,
         height: 630,
-        alt: "iOS Doodler App Store screenshot generator preview",
+        alt: "App Doodler App Store screenshot generator preview",
       },
     ],
   },
@@ -69,7 +69,7 @@ function HomeStructuredData() {
         "@type": "WebSite",
         "@id": `${SITE_URL}/#website`,
         url: SITE_URL,
-        name: "iOS Doodler",
+        name: "App Doodler",
         description: DESCRIPTION,
         potentialAction: {
           "@type": "SearchAction",
@@ -80,7 +80,7 @@ function HomeStructuredData() {
       {
         "@type": ["SoftwareApplication", "WebApplication"],
         "@id": `${SITE_URL}/#application`,
-        name: "iOS Doodler",
+        name: "App Doodler",
         applicationCategory: "DesignApplication",
         operatingSystem: "Web",
         description: DESCRIPTION,
@@ -124,7 +124,7 @@ export default function Home() {
   return (
     <>
       <HomeStructuredData />
-      <IosDoodlerStudio />
+      <AppDoodlerStudio />
     </>
   );
 }

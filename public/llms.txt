@@ -1,6 +1,6 @@
-# iOS Doodler
+# App Doodler
 
-iOS Doodler is a web app for creating localized iOS App Store screenshots.
+App Doodler is a web app for creating localized iOS App Store screenshots.
 
 ## Core purpose
 - Upload screenshot templates (shots)

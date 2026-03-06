@@ -5,8 +5,8 @@ assertTestDatabaseGuard();
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { STUDIO_LANGUAGES } from "@/features/ios-doodler/languages";
-import { createInitialSlots } from "@/features/ios-doodler/model";
+import { STUDIO_LANGUAGES } from "@/features/app-doodler/languages";
+import { createInitialSlots } from "@/features/app-doodler/model";
 import {
   clonePersistedStudioState,
   parseProjectFileJson,
@@ -14,7 +14,7 @@ import {
   PROJECT_FILE_VERSION,
   serializeProjectFile,
   type PersistedStudioState,
-} from "@/features/ios-doodler/project-file";
+} from "@/features/app-doodler/project-file";
 import {
   canRedoProjectHistory,
   canUndoProjectHistory,
@@ -22,7 +22,7 @@ import {
   projectHistoryPush,
   projectHistoryRedo,
   projectHistoryUndo,
-} from "@/features/ios-doodler/project-history";
+} from "@/features/app-doodler/project-history";
 
 function createState(seed = 0): PersistedStudioState {
   const slots = createInitialSlots(STUDIO_LANGUAGES);

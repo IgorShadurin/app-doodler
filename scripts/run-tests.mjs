@@ -54,7 +54,7 @@ function runCommand(command, commandArgs, env) {
 }
 
 async function runTestFile(filePath) {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "open-ios-doodler-test-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "app-doodler-test-"));
   const sqliteDbPath = path.join(tmpDir, "test.sqlite");
   const env = {
     ...process.env,

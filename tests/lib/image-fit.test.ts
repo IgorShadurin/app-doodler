@@ -9,7 +9,7 @@ import {
   computeCropRect,
   getCropAnchorsForAspectMismatch,
   hasMatchingAspectRatio,
-} from "@/features/ios-doodler/image-fit";
+} from "@/features/app-doodler/image-fit";
 
 test("hasMatchingAspectRatio accepts equal ratio with different sizes", () => {
   assert.equal(hasMatchingAspectRatio(642, 1389, 1284, 2778), true);

@@ -103,7 +103,7 @@ test("batch generate save route writes grouped files for multiple templates", as
   await setTemplateContent(templateOne, "One");
   await setTemplateContent(templateTwo, "Two");
 
-  const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "open-ios-doodler-batch-"));
+  const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "app-doodler-batch-"));
 
   try {
     const response = await saveBatchRoute(

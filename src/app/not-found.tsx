@@ -21,7 +21,7 @@ export default function NotFound() {
                 Page Not Found
               </CardTitle>
               <CardDescription className="text-slate-600">
-                The page you requested does not exist in Open iOS Doodler.
+                The page you requested does not exist in App Doodler.
               </CardDescription>
             </CardHeader>
             <CardContent>

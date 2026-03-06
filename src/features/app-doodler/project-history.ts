@@ -1,7 +1,7 @@
 import {
   clonePersistedStudioState,
   type PersistedStudioState,
-} from '@/features/ios-doodler/project-file';
+} from '@/features/app-doodler/project-file';
 
 export type ProjectHistoryState = {
   capacity: number;

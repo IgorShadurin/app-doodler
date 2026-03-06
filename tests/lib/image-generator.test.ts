@@ -12,7 +12,7 @@ import sharp from "sharp";
 import { renderImage } from "@/lib/image-generator";
 
 test("renderImage outputs png with target dimensions", async () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "open-ios-doodler-image-test-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "app-doodler-image-test-"));
   const sourcePath = path.join(tmpDir, "source.png");
 
   try {
@@ -45,7 +45,7 @@ test("renderImage outputs png with target dimensions", async () => {
         },
       ],
       translations: {
-        title: "Hello from Open iOS Doodler",
+        title: "Hello from App Doodler",
       },
     });
 

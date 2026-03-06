@@ -1,4 +1,4 @@
-import type { TemplateSlot } from "@/features/ios-doodler/model";
+import type { TemplateSlot } from "@/features/app-doodler/model";
 
 type LanguageTextEntries = Record<string, string>;
 

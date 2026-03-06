@@ -1,74 +1,49 @@
-# Open iOS Doodler
+# App Doodler
 
-Open iOS Doodler helps you make App Store screenshots in many languages.
+App Doodler is a localized App Store screenshot generator.
 
-You upload screenshot templates, place text labels once, and then generate final images for iPhone/iPad sizes.
+It lets you design text overlays once, import translations, preview each locale, and export screenshots in the exact iPhone/iPad sizes needed for App Store Connect.
 
-## Who this is for
+## Core capabilities
 
-- App teams that need App Store screenshots in many languages.
-- Designers/marketers who want one repeatable workflow.
+- Upload one or more template screenshots.
+- Add and position labels visually.
+- Import translation JSON for many languages.
+- Preview output per template and language.
+- Export batches grouped by language.
+- Save and reopen project files.
 
-## What you can do
+## Tech stack
 
-- Upload 1 or many template images.
-- Add text labels and drag them where you want.
-- Import translations from JSON.
-- Preview any language.
-- Generate images for selected iOS sizes.
-- Generate for one language or all languages.
-- Save output to a folder grouped by language.
+- Next.js 16 + TypeScript
+- Prisma + SQLite
+- Sharp (image generation)
+- shadcn/ui
 
-## Example output folder
+## Requirements
 
-```text
-my-output/
-  screenshots/
-    en-US/
-      01-shot.png
-      02-shot.png
-    de-DE/
-      01-shot.png
-      02-shot.png
-```
+- Node.js 20+
+- npm 10+
 
 ## Quick start
 
-1. Install packages:
-
 ```bash
 npm install
-```
-
-2. Prepare database:
-
-```bash
 npm run prisma:generate
 npm run prisma:push
-```
-
-3. Start app:
-
-```bash
 npm run dev
 ```
 
-4. Open in browser:
+Open `http://localhost:3000`.
 
-```text
-http://localhost:3000
-```
+## Typical workflow
 
-Note: If port 3000 is busy, Next.js will use another port (for example 3001).
-
-## How to use
-
-1. Upload a template image.
-2. Add labels and move them to the right positions.
-3. Import translations JSON.
-4. Select templates, languages, iOS sizes.
-5. Set output directory.
-6. Run generation.
+1. Upload template images.
+2. Add label keys (for example `title`, `subtitle`, `cta`).
+3. Position and style labels in the editor.
+4. Import translation JSON.
+5. Select templates, locales, and output sizes.
+6. Generate and download/save outputs.
 
 ## Translation JSON format
 
@@ -87,26 +62,33 @@ Note: If port 3000 is busy, Next.js will use another port (for example 3001).
 
 Rules:
 
-- Top-level keys = language codes (`en`, `es`, `de`, etc).
-- Inside each language, key names must match your label keys.
+- Top-level keys are language codes (`en`, `es`, `de`, etc.).
+- Nested keys must match label keys from the editor.
 - All values must be strings.
 
-## Screen size support
+## Output layout
 
-- Full editor is for desktop and iPad.
-- On small phone screens, the app shows a warning card.
-
-## Helpful commands
-
-```bash
-npm run lint
-npm test
-npm run build
+```text
+my-output/
+  screenshots/
+    en-US/
+      01-shot.png
+      02-shot.png
+    de-DE/
+      01-shot.png
+      02-shot.png
 ```
 
-## Tech stack
+## Useful commands
 
-- Next.js + TypeScript
-- shadcn/ui
-- Prisma + SQLite
-- Sharp (image generation)
+```bash
+npm run dev
+npm run build
+npm run lint
+npm test
+```
+
+## Notes
+
+- Full editing is optimized for desktop and iPad-sized viewports.
+- Small mobile screens show a simplified warning view instead of the full editor.
