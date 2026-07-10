@@ -191,10 +191,14 @@ export function DoodlerStudio() {
   }, [activeTemplate, loadTemplate]);
 
   useEffect(() => {
-    loadTemplates().catch((error) => {
-      const message = error instanceof Error ? error.message : "Unable to load templates.";
-      setNotice({ kind: "error", text: message });
-    });
+    const timeoutId = window.setTimeout(() => {
+      loadTemplates().catch((error) => {
+        const message = error instanceof Error ? error.message : "Unable to load templates.";
+        setNotice({ kind: "error", text: message });
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadTemplates]);
 
   useEffect(() => {

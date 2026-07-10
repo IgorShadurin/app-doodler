@@ -16,7 +16,7 @@ import {
   Search,
   Trash2,
   RotateCcw,
-  Github,
+  GitFork,
   Crop,
   FileJson,
   GripVertical,
@@ -1462,7 +1462,6 @@ export function AppDoodlerStudio() {
   const cropShadeLeftRef = useRef<HTMLDivElement | null>(null);
   const cropShadeRightRef = useRef<HTMLDivElement | null>(null);
   const cropSelectionRef = useRef<HTMLDivElement | null>(null);
-  const selectedLabelElementRef = useRef<HTMLElement | null>(null);
   const pendingColorCommitRef = useRef<{ slotId: string; labelId: string; color: string } | null>(null);
   const colorCommitTimerRef = useRef<number | null>(null);
   const projectAutoSaveTimerRef = useRef<number | null>(null);
@@ -1696,12 +1695,16 @@ export function AppDoodlerStudio() {
 
   useEffect(() => {
     if (!persistenceReady) return;
-    if (!projectHistory) {
-      setProjectHistory(createProjectHistory(currentStudioState, { capacity: PROJECT_HISTORY_CAPACITY }));
-    }
-    if (projectBaselineSignature === null) {
-      setProjectBaselineSignature(currentStudioStateSignature);
-    }
+    const timeoutId = window.setTimeout(() => {
+      if (!projectHistory) {
+        setProjectHistory(createProjectHistory(currentStudioState, { capacity: PROJECT_HISTORY_CAPACITY }));
+      }
+      if (projectBaselineSignature === null) {
+        setProjectBaselineSignature(currentStudioStateSignature);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [currentStudioState, currentStudioStateSignature, persistenceReady, projectBaselineSignature, projectHistory]);
 
   useEffect(() => {
@@ -1753,7 +1756,10 @@ export function AppDoodlerStudio() {
   useEffect(() => {
     if (!editingSlot) return;
     if (!selectedLabelId || !editingSlot.labels.some((label) => label.id === selectedLabelId)) {
-      setSelectedLabelId(editingSlot.labels[0]?.id ?? null);
+      const timeoutId = window.setTimeout(() => {
+        setSelectedLabelId(editingSlot.labels[0]?.id ?? null);
+      }, 0);
+      return () => window.clearTimeout(timeoutId);
     }
   }, [editingSlot, selectedLabelId]);
 
@@ -1782,10 +1788,6 @@ export function AppDoodlerStudio() {
     if (!pending) return;
     mutateSlot(pending.slotId, (slot) => updateLabel(slot, pending.labelId, { color: pending.color }));
   }, [mutateSlot]);
-
-  useEffect(() => {
-    selectedLabelElementRef.current = selectedLabel ? findLabelOverlayElement(selectedLabel.id) : null;
-  }, [selectedLabel]);
 
   useEffect(() => {
     return () => {
@@ -2967,9 +2969,8 @@ export function AppDoodlerStudio() {
 
   const handleEditorColorPreview = useCallback((value: string) => {
     if (!editingSlot || !selectedLabel) return;
-    const labelElement = selectedLabelElementRef.current ?? findLabelOverlayElement(selectedLabel.id);
+    const labelElement = findLabelOverlayElement(selectedLabel.id);
     if (labelElement) {
-      selectedLabelElementRef.current = labelElement;
       if (labelElement.style.color !== value) {
         labelElement.style.color = value;
       }
@@ -3436,7 +3437,7 @@ export function AppDoodlerStudio() {
           rel="noreferrer noopener"
           className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-sky-700"
         >
-          <Github className="h-4 w-4" />
+          <GitFork className="h-4 w-4" />
           Source code on GitHub
         </a>
       </footer>

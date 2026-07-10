@@ -240,6 +240,7 @@ export function PreviewImagesRoute() {
   const [isReadingDirectory, setIsReadingDirectory] = useState(false);
   const [isLoadingLocaleImages, setIsLoadingLocaleImages] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasDirectoryHandle, setHasDirectoryHandle] = useState(false);
 
   const directoryHandleRef = useRef<any>(null);
 
@@ -316,6 +317,7 @@ export function PreviewImagesRoute() {
         id: "app-doodler-preview-images",
       });
       directoryHandleRef.current = pickedHandle;
+      setHasDirectoryHandle(true);
       await loadDirectory(pickedHandle);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -437,7 +439,7 @@ export function PreviewImagesRoute() {
                 variant="outline"
                 className="gap-2"
                 onClick={() => { void handleReload(); }}
-                disabled={!directoryHandleRef.current || isReadingDirectory}
+                disabled={!hasDirectoryHandle || isReadingDirectory}
               >
                 <RefreshCw className={cn("h-4 w-4", isReadingDirectory && "animate-spin")} />
                 Reload
