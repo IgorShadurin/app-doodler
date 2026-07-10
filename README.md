@@ -1,72 +1,79 @@
 # App Doodler
 
-App Doodler is a localized App Store screenshot generator.
+App Doodler helps you create localized screenshots for App Store Connect without rebuilding every image by hand.
 
-It lets you design text overlays once, import translations, preview each locale, and export screenshots in the exact iPhone/iPad sizes needed for App Store Connect.
+Design your screenshot text once, import translations, preview each language, and export complete iPhone and iPad screenshot sets. It is useful for App Store Optimization (ASO), product launches, localization updates, and teams that maintain the same visual campaign across many markets.
 
-## Core capabilities
+Use the hosted app at [doodler.copymyui.com](https://doodler.copymyui.com), or run it locally from this repository.
 
-- Upload one or more template screenshots.
-- Add and position labels visually.
-- Import translation JSON for many languages.
-- Preview output per template and language.
-- Export batches grouped by language.
-- Save and reopen project files.
+## What can you make with it?
 
-## Tech stack
+Here are a few practical examples:
 
-- Next.js 16 + TypeScript
-- Prisma + SQLite
-- Sharp (image generation)
-- shadcn/ui
+- Launch an app in 12 countries using one screenshot layout and 12 translated headline sets.
+- Localize feature names, captions, badges, and callouts placed beside app icons or UI controls.
+- Create different ASO messages such as "Plan your day" or "Never miss a task" without editing the original screenshot in a design tool.
+- Update a translated call to action once, then regenerate every affected screenshot size.
+- Preview longer German or French copy before export so text does not overflow its design.
+- Export files into language folders that are easy to review and upload to App Store Connect.
 
-## Requirements
+App Doodler localizes text overlays. It does not translate text already baked into screenshot pixels. If the app interface itself changes by locale, upload the appropriate localized screenshots as templates and use App Doodler for the surrounding headlines and annotations.
 
-- Node.js 20+
-- npm 10+
+## How to use App Doodler
 
-## Quick start
+### 1. Add your screenshots
 
-```bash
-npm install
-npm run prisma:generate
-npm run prisma:push
-npm run dev
-```
+Upload clean screenshots from your app. You can add multiple shots to create a complete App Store gallery, such as onboarding, search, editor, results, and subscription screens.
 
-Open `http://localhost:3000`.
+### 2. Add reusable text labels
 
-## Typical workflow
+Create labels such as `headline`, `subtitle`, `feature_name`, or `cta`. Position and style each label on the screenshot once. The same label positions are reused when you switch languages.
 
-1. Upload template images.
-2. Add label keys (for example `title`, `subtitle`, `cta`).
-3. Position and style labels in the editor.
-4. Import translation JSON.
-5. Select templates, locales, and output sizes.
-6. Generate and download/save outputs.
+For example, a screenshot showing a calendar icon might use:
 
-## Translation JSON format
+- `headline`: the main ASO benefit.
+- `feature_name`: the translated name beside the icon.
+- `subtitle`: a short explanation of the feature.
+
+### 3. Import your translations
+
+Prepare a JSON file containing the same label keys for every language:
 
 ```json
 {
-  "en": {
-    "title": "Plan your day in seconds",
-    "subtitle": "Smart reminders and calm focus mode"
+  "en-US": {
+    "headline": "Plan your day in seconds",
+    "feature_name": "Smart reminders",
+    "subtitle": "Stay focused on what matters"
   },
-  "es": {
-    "title": "Planifica tu dia en segundos",
-    "subtitle": "Recordatorios inteligentes y modo enfoque"
+  "de-DE": {
+    "headline": "Plane deinen Tag in Sekunden",
+    "feature_name": "Smarte Erinnerungen",
+    "subtitle": "Konzentriere dich auf das Wesentliche"
   }
 }
 ```
 
-Rules:
+App Doodler imports your translated copy; it does not generate translations. This keeps your localization under the control of your translators or localization workflow.
 
-- Top-level keys are language codes (`en`, `es`, `de`, etc.).
-- Nested keys must match label keys from the editor.
-- All values must be strings.
+Translation rules:
 
-## Output layout
+- Top-level keys are locale codes such as `en-US`, `de-DE`, and `es-ES`.
+- Every locale must contain the same label keys.
+- Label keys must match the labels used in the screenshot editor.
+- Every translated value must be a string.
+
+### 4. Preview every locale
+
+Switch between languages to check line wrapping, alignment, font size, and contrast. You can adjust a locale when translated text needs more room while keeping the overall screenshot design consistent.
+
+### 5. Choose App Store sizes
+
+Select the iPhone and iPad output presets required for your release. App Doodler maps the design to precise pixel dimensions instead of relying on manual resizing.
+
+### 6. Export the complete set
+
+Generate the selected screenshots and save them as PNG files grouped by locale:
 
 ```text
 my-output/
@@ -79,6 +86,39 @@ my-output/
       02-shot.png
 ```
 
+Review each folder with your localization or marketing team, then upload the approved images to the matching App Store Connect locale.
+
+## Why this helps with ASO
+
+App Store screenshots are part of the product page users see before installing an app. App Doodler makes it practical to present the same product benefits in each audience's language while keeping branding, spacing, and device dimensions consistent.
+
+It is especially useful when you need to:
+
+- Test a new screenshot headline across several markets.
+- Refresh seasonal or launch messaging without rebuilding every design.
+- Keep translated feature callouts aligned with the same icons and UI elements.
+- Hand off predictable locale folders for review and App Store upload.
+
+## Run locally
+
+### Requirements
+
+- Node.js 24.5 or newer in the Node 24 release line.
+- npm 10 or newer.
+
+### Setup
+
+```bash
+npm ci
+npm run prisma:generate
+npm run prisma:push
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+The editor uses SQLite for local persistence. You can also save project files and reopen them later.
+
 ## Useful commands
 
 ```bash
@@ -88,7 +128,13 @@ npm run lint
 npm test
 ```
 
-## Notes
+## Tech stack
 
-- Full editing is optimized for desktop and iPad-sized viewports.
-- Small mobile screens show a simplified warning view instead of the full editor.
+- Next.js and TypeScript.
+- Prisma and SQLite.
+- Sharp for image generation.
+- shadcn/ui components.
+
+## Display note
+
+The full editor is designed for desktop and iPad-sized viewports. Small mobile screens show a simplified warning view instead of the complete editing interface.
