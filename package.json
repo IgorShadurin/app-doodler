@@ -2,6 +2,9 @@
   "name": "app-doodler",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24.5.0 <25"
+  },
   "scripts": {
     "dev": "npm run prisma:generate && npm run prisma:push && next dev",
     "build": "npm run prisma:generate && next build",
