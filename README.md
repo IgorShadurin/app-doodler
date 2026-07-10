@@ -138,3 +138,7 @@ npm test
 ## Display note
 
 The full editor is designed for desktop and iPad-sized viewports. Small mobile screens show a simplified warning view instead of the complete editing interface.
+
+## License
+
+App Doodler is available under the [Apache License 2.0](LICENSE).
