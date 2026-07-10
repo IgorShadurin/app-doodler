@@ -1,10 +1,10 @@
 # App Doodler
 
-App Doodler helps you create localized screenshots for App Store Connect without rebuilding every image by hand.
+App Doodler is a free multilingual App Store screenshot generator for ASO, localization, and product launches.
 
-Design your screenshot text once, import translations, preview each language, and export complete iPhone and iPad screenshot sets. It is useful for App Store Optimization (ASO), product launches, localization updates, and teams that maintain the same visual campaign across many markets.
+Create one visual layout, add reusable headlines and feature callouts, import your translated copy, and preview every language before export. App Doodler generates complete iPhone and iPad PNG sets in the sizes required by App Store Connect, so you do not have to rebuild the same campaign for every locale in a design tool.
 
-Use the hosted app at [doodler.copymyui.com](https://doodler.copymyui.com), or run it locally from this repository.
+Use App Doodler free at [doodler.copymyui.com](https://doodler.copymyui.com). The project is also open source.
 
 ## What can you make with it?
 
